@@ -1,0 +1,646 @@
+.tooltip:hover .tooltipText {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Notification Center Styles */
+.notificationBell {
+    background: white;
+    padding: 0.5rem;
+    border-radius: 50%;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    font-size: 1.1rem;
+    color: #666;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    border: 1px solid #eee;
+    transition: transform 0.2s;
+}
+
+.notificationBell:hover {
+    transform: scale(1.05);
+}
+
+.unreadBadge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: #FF6B99;
+    color: white;
+    font-size: 0.65rem;
+    padding: 2px 5px;
+    border-radius: 10px;
+    border: 2px solid white;
+    font-weight: bold;
+}
+
+.notificationPanel {
+    position: absolute;
+    top: 55px;
+    right: 0;
+    width: 320px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    z-index: 2000;
+    border: 1px solid #eee;
+    overflow: hidden;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.notificationHeader {
+    padding: 1rem;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fdfdfd;
+}
+
+.notificationHeader h4 {
+    margin: 0;
+    color: var(--foreground);
+    font-size: 1rem;
+}
+
+.notificationList {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notificationItem {
+    padding: 1rem;
+    border-bottom: 1px solid #f5f5f5;
+    transition: background 0.2s;
+    cursor: pointer;
+}
+
+.notificationItem:hover {
+    background: #fafafa;
+}
+
+.notificationItem.unread {
+    background: #fff9fb;
+}
+
+.notificationItem p {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #444;
+}
+
+.notificationTime {
+    display: block;
+    font-size: 0.7rem;
+    color: #999;
+    margin-top: 0.4rem;
+}
+
+.emptyNotifications {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: #999;
+}
+
+.markAllBtn {
+    background: none;
+    border: none;
+    color: #FF6B99;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+
+/* Toast Notification */
+.toastContainer {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3000;
+    width: auto;
+    max-width: 90%;
+    pointer-events: none;
+}
+
+.toast {
+    background: #333;
+    color: white;
+    padding: 0.8rem 1.5rem;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    pointer-events: auto;
+    animation: toastIn 0.4s ease-out, toastOut 0.4s ease-in 4.6s forwards;
+    margin-bottom: 0.5rem;
+}
+
+@keyframes toastIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes toastOut {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+}
+
+.toast.support {
+    background: #7B1FA2;
+}
+
+.toast.remind {
+    background: #FF6B99;
+}
+
+@media (min-width: 900px) {
+    .dashboard {
+        padding-left: 100px;
+        /* Account for sidebar */
+    }
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+/* Desktop Styles */
+@media (min-width: 900px) {
+    .dashboard {
+        max-width: 100%;
+        padding: 2rem 3rem 2rem 120px;
+        /* Left padding accounts for sidebar + gap */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .header {
+        max-width: 100%;
+        margin-bottom: 2rem;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: 1fr 1.5fr 1fr;
+        max-width: 100%;
+        gap: 2rem;
+        align-items: start;
+    }
+
+    .card {
+        height: fit-content;
+        /* Removed max-height to prevent vertical clipping of insights */
+    }
+}
+
+.header h1 {
+    color: var(--foreground);
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.signOutBtn {
+    background: white;
+    padding: 0.5rem;
+    border-radius: 50%;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    font-size: 0.8rem;
+    color: #666;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    border: none;
+}
+
+.cycleCard {
+    background: white;
+    border-left: none;
+    position: relative;
+    /* overflow: hidden; -- Removed to prevent tooltip clipping */
+}
+
+.cycleCard h2 {
+    font-size: 3rem;
+    color: var(--foreground);
+    margin-bottom: 0.2rem;
+    line-height: 1;
+}
+
+.phaseIndicator {
+    margin-top: 0.5rem;
+}
+
+.phaseName {
+    display: inline-block;
+    background: #FFECF2;
+    color: #FF6B99;
+    padding: 0.4rem 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.phaseDesc {
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
+    color: #777;
+}
+
+/* Calendar Styles - DARK THEME */
+.calendarWrapper {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    background: #2D3436;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+/* Base override to ensure transparency */
+.calendarWrapper :global(.react-calendar) {
+    width: 100%;
+    background: transparent !important;
+    border: none !important;
+    font-family: var(--font-sans);
+    line-height: 1.125em;
+    font-size: 1rem;
+    color: white !important;
+}
+
+/* Navigation (Month/Year) */
+.calendarWrapper :global(.react-calendar__navigation) {
+    display: flex;
+    margin-bottom: 1rem;
+}
+
+.calendarWrapper :global(.react-calendar__navigation button) {
+    color: white;
+    min-width: 44px;
+    background: none;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border: none;
+}
+
+.calendarWrapper :global(.react-calendar__navigation button:enabled:hover),
+.calendarWrapper :global(.react-calendar__navigation button:enabled:focus) {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}
+
+/* Weekdays (Mon, Tue...) */
+.calendarWrapper :global(.react-calendar__month-view__weekdays) {
+    text-align: center;
+    text-transform: uppercase;
+    font-weight: bold;
+    font-size: 0.75em;
+    color: #B2BEC3;
+    margin-bottom: 0.5rem;
+}
+
+.calendarWrapper :global(.react-calendar__month-view__weekdays__weekday) {
+    padding: 0.5em;
+}
+
+.calendarWrapper :global(.react-calendar__month-view__weekdays__weekday abbr) {
+    text-decoration: none;
+    cursor: default;
+}
+
+/* Days (Tiles) */
+.calendarWrapper :global(.react-calendar__tile) {
+    max-width: 100%;
+    padding: 12px 6px;
+    background: none;
+    text-align: center;
+    line-height: 24px;
+    height: 48px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: white;
+    border: none;
+    position: relative;
+    /* Ensure overlapping works if needed */
+}
+
+.calendarWrapper :global(.react-calendar__tile:disabled) {
+    background-color: transparent;
+    color: #636e72;
+}
+
+.calendarWrapper :global(.react-calendar__tile:enabled:hover),
+.calendarWrapper :global(.react-calendar__tile:enabled:focus) {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+}
+
+/* Today's Date */
+.calendarWrapper :global(.react-calendar__tile--now) {
+    background: rgba(255, 255, 255, 0.15) !important;
+    color: white !important;
+    border-radius: 24px !important;
+}
+
+/* Selected Date - Default */
+/* Selected Date - Default (Focus state, not necessarily a log) */
+.calendarWrapper :global(.react-calendar__tile--active) {
+    background: transparent !important;
+    color: white !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 24px !important;
+}
+
+/* Custom Period Highlight Ranges - SEAMLESS BAR */
+.calendarWrapper .periodRangeStart {
+    background: #FF6B99 !important;
+    color: white !important;
+    border-top-left-radius: 24px !important;
+    border-bottom-left-radius: 24px !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    opacity: 1;
+}
+
+.calendarWrapper .periodRangeMiddle {
+    background: #FF6B99 !important;
+    color: white !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    opacity: 1;
+}
+
+.calendarWrapper .periodRangeEnd {
+    background: #FF6B99 !important;
+    color: white !important;
+    border-top-right-radius: 24px !important;
+    border-bottom-right-radius: 24px !important;
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    opacity: 1;
+}
+
+.calendarWrapper .periodRangeSingle {
+    background: #FF6B99 !important;
+    color: white !important;
+    border-radius: 24px !important;
+    margin: 0 !important;
+    opacity: 1;
+}
+
+/* Supplies Checklist Styles */
+.checklist {
+    list-style: none;
+    padding: 0;
+    margin-top: 1rem;
+}
+
+.checkItem {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.8rem;
+}
+
+.checkItem input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    margin-right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.checkItem input[type="checkbox"]:checked {
+    background-color: #FF6B99;
+    border-color: #FF6B99;
+}
+
+.checkItem input[type="checkbox"]:checked::after {
+    content: '✔';
+    color: white;
+    font-size: 14px;
+}
+
+.checkItem label {
+    font-size: 1rem;
+    color: var(--foreground);
+    cursor: pointer;
+}
+
+/* Partner Connectivity Styles */
+.infoText {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 1.5rem;
+}
+
+.inputGroup label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #444;
+}
+
+.flexRow {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.flexRow input {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    outline: none;
+    transition: box-shadow 0.2s;
+}
+
+.flexRow input:focus {
+    box-shadow: 0 0 0 2px rgba(255, 107, 153, 0.1);
+    border-color: #FF6B99;
+}
+
+/* Prediction Highlights */
+.calendarWrapper .predictedPeriod {
+    position: relative;
+}
+
+.calendarWrapper .predictedPeriod::before {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border: 2px dashed #ff9a9e;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+/* Fertile Range Highlights - SEAMLESS BAR (Dark Grey) */
+.calendarWrapper .fertileRangeStart {
+    background: #4A4E50 !important;
+    color: white !important;
+    border-top-left-radius: 24px !important;
+    border-bottom-left-radius: 24px !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+}
+
+.calendarWrapper .fertileRangeMiddle {
+    background: #4A4E50 !important;
+    color: white !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+}
+
+.calendarWrapper .fertileRangeEnd {
+    background: #4A4E50 !important;
+    color: white !important;
+    border-top-right-radius: 24px !important;
+    border-bottom-right-radius: 24px !important;
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+}
+
+.calendarWrapper .fertileRangeSingle {
+    background: #4A4E50 !important;
+    color: white !important;
+    border-radius: 24px !important;
+    margin: 0 !important;
+}
+
+.calendarWrapper .hasLog::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    background-color: #ffd700;
+    border-radius: 50%;
+    z-index: 10;
+}
+
+/* Custom Tooltips */
+.tooltip {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+}
+
+.tooltip .tooltipText {
+    visibility: hidden;
+    width: 200px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 8px;
+    padding: 8px;
+    position: absolute;
+    z-index: 1000;
+    /* Increased to ensure it stays on top */
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 0.8rem;
+    font-weight: normal;
+    text-transform: none;
+    line-height: 1.4;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.tooltip .tooltipText::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #333 transparent transparent transparent;
+}
+
+.tooltip:hover .tooltipText {
+    visibility: visible;
+    opacity: 1;
+}

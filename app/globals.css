@@ -1,0 +1,83 @@
+:root {
+  --background: #F5E6EB;
+  /* Light Peach/Pink Background */
+  --foreground: #2D2D2D;
+  /* Dark Charcoal */
+
+  --primary: #FF6B99;
+  --primary-gradient: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%, #FECFEF 100%);
+
+  --secondary: #FFF0F5;
+  --secondary-foreground: #2d3326;
+
+  --accent: #FBAB7E;
+  --accent-gradient: linear-gradient(62deg, #FBAB7E 0%, #F7CE68 100%);
+
+  --danger: #d32f2f;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --border-radius: 12px;
+  /* Sharper, more professional */
+  --box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  /* Softer, deeper shadow */
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Utilities */
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius);
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: #ff5286;
+  /* Slightly darker pink */
+}
+
+.card {
+  background: white;
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  box-shadow: var(--box-shadow);
+  border: 1px solid #f0f0f0;
+}

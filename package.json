@@ -1,0 +1,27 @@
+{
+  "name": "void-tyson",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.94.0",
+    "jspdf": "^4.1.0",
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-calendar": "^6.0.0",
+    "react-dom": "19.2.3",
+    "recharts": "^3.7.0",
+    "resend": "^6.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-calendar": "^3.9.0",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}
