@@ -1,21 +1,17 @@
 {
-    "name": "Void Tyson Period Tracker",
-    "short_name": "Void Tyson",
-    "description": "High-end, private menstrual health platform.",
+    "name": "Period Tracker | Phasic Health",
+    "short_name": "Phasic",
+    "description": "Premium, private menstrual health platform.",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#ffffff",
-    "theme_color": "#FF6B99",
+    "theme_color": "#E53935",
     "icons": [
         {
-            "src": "/icon-192.png",
-            "sizes": "192x192",
-            "type": "image/png"
-        },
-        {
-            "src": "/icon-512.png",
-            "sizes": "512x512",
-            "type": "image/png"
+            "src": "/icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
         }
     ]
 }

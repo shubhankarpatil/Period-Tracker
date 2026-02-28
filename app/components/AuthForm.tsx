@@ -32,6 +32,21 @@ export default function AuthForm() {
         setLoading(false)
     }
 
+    const handleResetPassword = async () => {
+        if (!email) {
+            setMessage('Please enter your email address first.')
+            return
+        }
+        setLoading(true)
+        setMessage('')
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        })
+        if (error) setMessage(error.message)
+        else setMessage('Password reset link sent to your email!')
+        setLoading(false)
+    }
+
     return (
         <div className={styles.authContainer}>
             <div className={styles.card}>
@@ -60,6 +75,19 @@ export default function AuthForm() {
                         />
                     </div>
 
+                    {!isSignUp && (
+                        <div style={{ textAlign: 'right', marginTop: '-0.5rem' }}>
+                            <button
+                                type="button"
+                                onClick={handleResetPassword}
+                                className={styles.forgotBtn}
+                                disabled={loading}
+                            >
+                                Forgot password?
+                            </button>
+                        </div>
+                    )}
+
                     {message && <p className={styles.message}>{message}</p>}
 
                     <button type="submit" disabled={loading} className="btn-primary">
@@ -73,7 +101,7 @@ export default function AuthForm() {
                         {isSignUp ? "Sign In" : "Create one"}
                     </button>
                 </p>
-            </div>
-        </div>
+            </div >
+        </div >
     )
 }

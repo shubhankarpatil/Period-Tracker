@@ -82,3 +82,23 @@
     padding: 0;
     margin-left: 0.3rem;
 }
+
+.linkBtn:hover {
+    text-decoration: underline;
+}
+
+.forgotBtn {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 0.8rem;
+    text-decoration: none;
+    padding: 0;
+    cursor: pointer;
+    transition: color 0.2s;
+    font-family: inherit;
+}
+
+.forgotBtn:hover {
+    color: var(--primary);
+}
