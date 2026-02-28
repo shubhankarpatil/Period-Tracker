@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import AuthForm from './components/AuthForm'
 import Dashboard from './components/Dashboard'
@@ -33,7 +33,13 @@ export default function Home() {
 
   return (
     <main className="main-container">
-      {!session ? <AuthForm /> : <Dashboard session={session} />}
+      {!session ? (
+        <Suspense fallback={<div>Loading form...</div>}>
+          <AuthForm />
+        </Suspense>
+      ) : (
+        <Dashboard session={session} />
+      )}
     </main>
   )
 }
