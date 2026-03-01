@@ -38,19 +38,20 @@ export default function Dashboard({ session }: { session: any }) {
     // Daily Logs State
     const [dailyLogs, setDailyLogs] = useState<Record<string, any>>({})
     const [isDayModalOpen, setIsDayModalOpen] = useState(false)
-    const [isLogModalOpen, setIsLogModalOpen] = useState(false) // Deprecated, but keeping for safety until verify, actually removing it from usage
     const [logForm, setLogForm] = useState<{
         mood: string,
         symptoms: string[],
         basalTemp: string,
         mucus: string,
-        lhTest: string
+        lhTest: string,
+        isPeriod: boolean
     }>({
         mood: '',
         symptoms: [],
         basalTemp: '',
         mucus: '',
-        lhTest: ''
+        lhTest: '',
+        isPeriod: false
     })
 
     // View State
@@ -313,7 +314,9 @@ export default function Dashboard({ session }: { session: any }) {
             if (data) {
                 setProfile(data)
                 setPartnerEmail(data.partner_email || '')
-                setUserName(data.name || data.full_name || '')
+                const finalName = data.name || data.full_name || ''
+                setUserName(finalName)
+                if (!finalName) setIsEditingName(true)
 
                 // Check if they haven't logged mood today
                 const todayStr = new Date().toISOString().split('T')[0]
@@ -453,7 +456,11 @@ export default function Dashboard({ session }: { session: any }) {
 
     // Effect to trigger phase-change notifications
     useEffect(() => {
-        if (phase && lastNotifiedPhase !== phase) {
+        const todayStr = getLocalDateString(new Date())
+        const selectedDateStr = getLocalDateString(date as Date)
+
+        // ONLY trigger notifications if we are looking at TODAY'S phase
+        if (selectedDateStr === todayStr && phase && lastNotifiedPhase !== phase) {
             // User Notification
             const phaseMsg = phase === 'Ovulation'
                 ? "You're in your Ovulation phase! Peak fertility and energy! 🌟"
@@ -471,7 +478,7 @@ export default function Dashboard({ session }: { session: any }) {
                 localStorage.setItem('lastNotifiedPhase', phase)
             }
         }
-    }, [phase, profile?.partner_email, lastNotifiedPhase])
+    }, [phase, profile?.partner_email, lastNotifiedPhase, date])
 
     const notifyPartnerOfPhaseChange = async (newPhase: string) => {
         if (!profile?.partner_email || lastNotifiedPhase === newPhase) return
@@ -486,11 +493,6 @@ export default function Dashboard({ session }: { session: any }) {
         }
     }
 
-    useEffect(() => {
-        if (phase && profile?.partner_email) {
-            notifyPartnerOfPhaseChange(phase)
-        }
-    }, [phase, profile?.partner_email])
 
     async function handleDayClick(value: Value, event: React.MouseEvent<HTMLButtonElement>) {
         if (!value) return
@@ -505,7 +507,8 @@ export default function Dashboard({ session }: { session: any }) {
             symptoms: existing.symptoms || [],
             basalTemp: existing.basal_temp?.toString() || '',
             mucus: existing.cervical_mucus || '',
-            lhTest: existing.lh_test || ''
+            lhTest: existing.lh_test || '',
+            isPeriod: periodDates.includes(dateStr)
         })
 
         // Open Modal
@@ -515,7 +518,6 @@ export default function Dashboard({ session }: { session: any }) {
     // Extracted Period Logic (called from Modal)
     async function handlePeriodAction() {
         const dateStr = getLocalDateString(date as Date)
-        setIsDayModalOpen(false)
 
         const { data: currentCycles, error } = await supabase
             .from('cycles')
@@ -662,23 +664,16 @@ export default function Dashboard({ session }: { session: any }) {
 
         if (error) showAlert("Error", error.message)
         else {
-            setIsLogModalOpen(false)
+            const dateStr = getLocalDateString(date as Date)
+            const wasPeriod = periodDates.includes(dateStr)
+            if (logForm.isPeriod !== wasPeriod) {
+                await handlePeriodAction()
+            }
+            setIsDayModalOpen(false)
             fetchCycles()
         }
     }
 
-    const openLogModal = () => {
-        const dStr = getLocalDateString(date as Date)
-        const existing = dailyLogs[dStr] || {}
-        setLogForm({
-            mood: existing.mood || '',
-            symptoms: existing.symptoms || [],
-            basalTemp: existing.basal_temp?.toString() || '',
-            mucus: existing.cervical_mucus || '',
-            lhTest: existing.lh_test || ''
-        })
-        setIsLogModalOpen(true)
-    }
 
     const downloadCSV = () => {
         // Collect all dates that have logs or periods
@@ -722,6 +717,7 @@ export default function Dashboard({ session }: { session: any }) {
                 partner_email: partnerEmail
             }).eq('id', user.id)
             if (error) throw error
+            setProfile({ ...profile, partner_email: partnerEmail })
             showAlert('Success', 'Partner email updated!')
         } catch (error) {
             showAlert('Error', 'Error updating profile!')
@@ -978,8 +974,8 @@ export default function Dashboard({ session }: { session: any }) {
                                 fontWeight: 600,
                                 background: discreetMode ? '#333' : '#fff',
                                 color: discreetMode ? '#fff' : '#333',
-                                border: '1px solid #ddd',
-                                borderRadius: '8px',
+                                // border: '1px solid #ddd',
+                                borderRadius: '6px',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -988,7 +984,6 @@ export default function Dashboard({ session }: { session: any }) {
                                 transition: 'all 0.2s ease'
                             }}
                         >
-                            <span>{discreetMode ? '🔓' : '🔒'}</span>
                             {discreetMode ? 'Reveal Data' : 'Discreet Mode'}
                         </button>
                     </div>
@@ -1000,9 +995,9 @@ export default function Dashboard({ session }: { session: any }) {
                     (activeTab === 'graph' && isDesktop) ? '0.8fr 1.5fr 1fr' :
                         (activeTab === 'home' && isDesktop) ? '1fr 1.5fr' : '1fr 1.5fr 1fr',
                 paddingBottom: '2rem',
-                width: activeTab === 'knowledge' ? '100%' : undefined,
-                maxWidth: activeTab === 'knowledge' ? '100vw' : undefined,
-                margin: activeTab === 'knowledge' ? '0' : '0 auto'
+                width: (activeTab === 'knowledge' || activeTab === 'profile') ? '100%' : undefined,
+                maxWidth: (activeTab === 'knowledge' || activeTab === 'profile') ? '100%' : undefined,
+                margin: (activeTab === 'knowledge' || activeTab === 'profile') ? '0' : '0 auto'
             }}>
                 {/* LEFT COLUMN: Cycle Info */}
                 <div className="mobile-view-wrapper" style={{ display: (activeTab === 'home' || activeTab === 'graph') ? 'block' : 'none' }}>
@@ -1165,7 +1160,7 @@ export default function Dashboard({ session }: { session: any }) {
                                     border: '1px solid #ff4d4f',
                                     color: '#ff4d4f',
                                     padding: '0.3rem 0.8rem',
-                                    borderRadius: '8px',
+                                    borderRadius: '6px',
                                     cursor: 'pointer',
                                     fontSize: '0.75rem',
                                     fontWeight: 500
@@ -1315,10 +1310,10 @@ export default function Dashboard({ session }: { session: any }) {
                             <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', flex: 1 }}>
                                 <div>
                                     <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>Name</label>
-                                    {!isEditingName && userName ? (
+                                    {!isEditingName ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <div style={{ fontWeight: 500, flex: 1 }}>{userName}</div>
-                                            <button onClick={() => setIsEditingName(true)} className="btn-primary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.85rem' }}>Edit</button>
+                                            <div style={{ fontWeight: 500, flex: 1, minHeight: '1.5rem' }}>{userName || (discreetMode ? 'Anonymous' : 'No name set')}</div>
+                                            <button onClick={() => setIsEditingName(true)} className="btn-primary" style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem' }}>Edit</button>
                                         </div>
                                     ) : (
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1332,7 +1327,7 @@ export default function Dashboard({ session }: { session: any }) {
                                             <button
                                                 onClick={async () => { await updateUserName(); setIsEditingName(false); }}
                                                 className="btn-primary"
-                                                style={{ padding: '0.3rem 0.6rem', fontSize: '0.85rem' }}
+                                                style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem' }}
                                             >
                                                 Save
                                             </button>
@@ -1416,12 +1411,12 @@ export default function Dashboard({ session }: { session: any }) {
                         {/* Partner Connectivity */}
                         <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                             <h3>Partner Connectivity</h3>
-                            <p className={styles.infoText}>We'll send them tips when it matters.</p>
+                            <p className={styles.infoText} style={{ marginBottom: '1.5rem' }}>We'll send them tips when it matters.</p>
                             <div style={{ flex: 1 }}>
                                 {!isEditingPartner && profile?.partner_email ? (
                                     <div className={styles.flexRow} style={{ alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem' }}>
                                         <span style={{ fontWeight: 500, color: 'var(--foreground)' }}>{profile.partner_email}</span>
-                                        <button onClick={() => setIsEditingPartner(true)} className="btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>Edit</button>
+                                        <button onClick={() => setIsEditingPartner(true)} className="btn-primary" style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem' }}>Edit</button>
                                     </div>
                                 ) : (
                                     <div className={styles.inputGroup}>
@@ -1437,6 +1432,7 @@ export default function Dashboard({ session }: { session: any }) {
                                                 onClick={async () => { await updatePartnerEmail(); setIsEditingPartner(false); }}
                                                 className="btn-primary"
                                                 disabled={!partnerEmail}
+                                                style={{ padding: '0.3rem 0.8rem', fontSize: '0.85rem' }}
                                             >
                                                 Save
                                             </button>
@@ -1444,7 +1440,7 @@ export default function Dashboard({ session }: { session: any }) {
                                     </div>
                                 )}
                                 {profile?.partner_email && (
-                                    <div style={{ marginTop: '1rem', padding: '1rem', background: '#F3E5F5', borderRadius: '12px', border: '1px solid #E1BEE7' }}>
+                                    <div style={{ marginTop: '1rem', padding: '1rem', background: '#F3E5F5', borderRadius: '6px', border: '1px solid #E1BEE7' }}>
                                         <strong style={{ color: '#7B1FA2', display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
                                             {discreetMode ? 'Support Tip' : `💡 How to support her in the ${phase} phase`}
                                         </strong>
@@ -1454,7 +1450,7 @@ export default function Dashboard({ session }: { session: any }) {
                                     </div>
                                 )}
 
-                                <div style={{ marginTop: '1rem', padding: '1.2rem', background: '#F0F4FF', borderRadius: '16px', border: '1px solid #D1E3FF' }}>
+                                <div style={{ marginTop: '1rem', padding: '1.2rem', background: '#F0F4FF', borderRadius: '8px', border: '1px solid #D1E3FF' }}>
                                     <h4 style={{ margin: '0 0 0.5rem 0', color: '#1A73E8', fontSize: '0.95rem' }}>
                                         🔗 Partner Share Link
                                     </h4>
@@ -1595,40 +1591,43 @@ export default function Dashboard({ session }: { session: any }) {
                         background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000
                     }}
                 >
-                    <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', width: '90%', maxWidth: '400px', maxHeight: '90vh', overflowY: 'auto' }}>
+                    <div style={{ background: 'white', padding: '2rem', borderRadius: '8px', width: '90%', maxWidth: '400px', maxHeight: '90vh', overflowY: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ margin: 0 }}>{getLocalDateString(date as Date)}</h3>
                             <button onClick={() => setIsDayModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
                         </div>
 
-                        {/* Period Action Section */}
-                        <div style={{ margin: '1.5rem 0', padding: '1rem', background: '#FFF0F5', borderRadius: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ fontWeight: 600, color: '#b71c1c' }}>{discreetMode ? 'Event' : 'Period'}</span>
+                        <div style={{ margin: '1.5rem 0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '0.75rem', background: logForm.isPeriod ? '#FFF0F5' : '#f9f9f9', borderRadius: '6px', border: logForm.isPeriod ? '1px solid #FFD1DC' : '1px solid #eee' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>🩸</span>
+                                    <span style={{ fontWeight: 600, color: logForm.isPeriod ? '#b71c1c' : '#666' }}>{discreetMode ? 'Event' : 'Period'}</span>
+                                </div>
                                 <button
-                                    onClick={handlePeriodAction}
+                                    onClick={() => setLogForm(prev => ({ ...prev, isPeriod: !prev.isPeriod }))}
                                     style={{
-                                        padding: '0.5rem 1rem',
-                                        background: periodDates.includes(getLocalDateString(date as Date)) ? 'white' : '#ff4d4f',
-                                        color: periodDates.includes(getLocalDateString(date as Date)) ? '#ff4d4f' : 'white',
-                                        border: periodDates.includes(getLocalDateString(date as Date)) ? '1px solid #ff4d4f' : 'none',
-                                        borderRadius: '8px', cursor: 'pointer', fontWeight: 500
+                                        padding: '0.4rem 1rem',
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        background: logForm.isPeriod ? '#ff4d4f' : '#ddd',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                        fontSize: '0.85rem',
+                                        fontWeight: 600,
+                                        transition: 'all 0.2s'
                                     }}
                                 >
-                                    {periodDates.includes(getLocalDateString(date as Date)) ? 'Edit / Remove' : (discreetMode ? 'Log Event' : 'Log Period')}
+                                    {logForm.isPeriod ? 'Active' : 'Not Active'}
                                 </button>
                             </div>
-                        </div>
 
-                        {/* Daily Log Section */}
-                        <div style={{ margin: '1.5rem 0' }}>
                             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Mood</label>
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                 {['Happy', 'Calm', 'Irritable', 'Sad', 'Anxious', 'Energetic'].map(m => (
                                     <button key={m}
                                         onClick={() => setLogForm(prev => ({ ...prev, mood: prev.mood === m ? '' : m }))}
                                         style={{
-                                            padding: '0.5rem 1rem', borderRadius: '20px', border: 'none',
+                                            padding: '0.5rem 1rem', borderRadius: '6px', border: 'none',
                                             background: logForm.mood === m ? '#FF6B99' : '#f0f0f0',
                                             color: logForm.mood === m ? 'white' : '#666',
                                             cursor: 'pointer'
@@ -1643,7 +1642,7 @@ export default function Dashboard({ session }: { session: any }) {
                         <div style={{ margin: '1.5rem 0' }}>
                             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Symptoms</label>
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                {['Cramps', 'Headache', 'Bloating', 'Acne', 'Fatigue', 'Cravings'].map(s => (
+                                {Array.from(new Set(['Cramps', 'Headache', 'Bloating', 'Acne', 'Fatigue', 'Cravings', ...logForm.symptoms])).map(s => (
                                     <button key={s}
                                         onClick={() => {
                                             const exists = logForm.symptoms.includes(s)
@@ -1653,12 +1652,13 @@ export default function Dashboard({ session }: { session: any }) {
                                             }))
                                         }}
                                         style={{
-                                            padding: '0.5rem 1rem', borderRadius: '20px', border: 'none',
+                                            padding: '0.5rem 1rem', borderRadius: '6px', border: 'none',
                                             background: logForm.symptoms.includes(s) ? '#FF8A65' : '#f0f0f0',
                                             color: logForm.symptoms.includes(s) ? 'white' : '#666',
                                             cursor: 'pointer'
                                         }}
                                     >
+                                        {s}
                                     </button>
                                 ))}
                             </div>
@@ -1669,7 +1669,7 @@ export default function Dashboard({ session }: { session: any }) {
                                     value={customSymptom}
                                     onChange={(e) => setCustomSymptom(e.target.value)}
                                     placeholder="Add custom..."
-                                    style={{ flex: 1, padding: '0.45rem 0.75rem', borderRadius: '12px', border: '1px solid #eee', background: '#f9f9f9', fontSize: '0.85rem' }}
+                                    style={{ flex: 1, padding: '0.45rem 0.75rem', borderRadius: '6px', border: '1px solid #eee', background: '#f9f9f9', fontSize: '0.85rem' }}
                                 />
                                 <button
                                     onClick={() => {
@@ -1680,7 +1680,7 @@ export default function Dashboard({ session }: { session: any }) {
                                             setCustomSymptom('')
                                         }
                                     }}
-                                    style={{ padding: '0.45rem 1rem', background: '#FF8A65', color: 'white', border: 'none', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+                                    style={{ padding: '0.45rem 1rem', background: '#FF8A65', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
                                 >
                                     Add
                                 </button>
@@ -1704,7 +1704,7 @@ export default function Dashboard({ session }: { session: any }) {
                                     onChange={(e) => setLogForm(prev => ({ ...prev, basalTemp: e.target.value }))}
                                     placeholder="e.g. 36.50"
                                     style={{
-                                        width: '100%', padding: '0.6rem 1rem', borderRadius: '20px',
+                                        width: '100%', padding: '0.6rem 1rem', borderRadius: '6px',
                                         border: '1px solid #eee', background: '#f9f9f9', outline: 'none',
                                         fontSize: '0.9rem', color: '#333'
                                     }}
@@ -1720,7 +1720,7 @@ export default function Dashboard({ session }: { session: any }) {
                                         <button key={type}
                                             onClick={() => setLogForm(prev => ({ ...prev, mucus: prev.mucus === type ? '' : type }))}
                                             style={{
-                                                padding: '0.5rem 1rem', borderRadius: '20px', border: 'none',
+                                                padding: '0.5rem 1rem', borderRadius: '6px', border: 'none',
                                                 background: logForm.mucus === type ? '#9CCC65' : '#f0f0f0',
                                                 color: logForm.mucus === type ? 'white' : '#666',
                                                 cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500
@@ -1741,7 +1741,7 @@ export default function Dashboard({ session }: { session: any }) {
                                         <button key={res}
                                             onClick={() => setLogForm(prev => ({ ...prev, lhTest: prev.lhTest === res ? '' : res }))}
                                             style={{
-                                                flex: 1, padding: '0.5rem 1rem', borderRadius: '20px', border: 'none',
+                                                flex: 1, padding: '0.5rem 1rem', borderRadius: '6px', border: 'none',
                                                 background: logForm.lhTest === res ? '#9CCC65' : '#f0f0f0',
                                                 color: logForm.lhTest === res ? 'white' : '#666',
                                                 cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500
@@ -1755,7 +1755,7 @@ export default function Dashboard({ session }: { session: any }) {
                         </div>
 
                         <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-                            <button onClick={() => { handleSaveLog(); setIsDayModalOpen(false); }} style={{ flex: 1, padding: '1rem', background: '#FF6B99', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 600 }}>Save Daily Log</button>
+                            <button onClick={handleSaveLog} style={{ flex: 1, padding: '1rem', background: '#FF6B99', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>Save Daily Log & Period</button>
                         </div>
                     </div>
                 </div>
