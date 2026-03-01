@@ -60,6 +60,8 @@ export default function Dashboard({ session }: { session: any }) {
     const [isDesktop, setIsDesktop] = useState(false)
     const [activeStartDate, setActiveStartDate] = useState<Date>(new Date())
     const [discreetMode, setDiscreetMode] = useState(false)
+    const [supportTasks, setSupportTasks] = useState<any[]>([])
+    const [supportTaskInput, setSupportTaskInput] = useState('')
 
     const maskSensitiveText = (text: string) => {
         if (!discreetMode || !text) return text
@@ -147,6 +149,33 @@ export default function Dashboard({ session }: { session: any }) {
         Luteal: "She might be more inward-focused or sensitive (PMS). Be patient, offer comfort foods, and give her some extra space or quiet time if needed."
     } as any
 
+    const PHASE_TASKS = {
+        Menstrual: [
+            "Bring her a hot water bottle for cramps",
+            "Restock her favorite dark chocolate/snacks",
+            "Take over the evening chores/cooking",
+            "Ensure she has plenty of water and iron-rich foods"
+        ],
+        Follicular: [
+            "Plan an outdoor activity or date",
+            "Support her with any new projects or goals",
+            "Enjoy her rising energy together",
+            "Cook a light, fresh meal today"
+        ],
+        Ovulatory: [
+            "Give her extra compliments (confidence is high!)",
+            "Go for a high-energy workout together",
+            "Perfect time for a social outing with friends",
+            "Stay hydrated and active"
+        ],
+        Luteal: [
+            "Be extra patient and active listener",
+            "Offer a gentle massage or relaxation time",
+            "Avoid planning high-stress social events",
+            "Buy magnesium-rich snacks (pumpkin seeds, chocolate)"
+        ]
+    } as any
+
     // Modal State
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean
@@ -229,6 +258,7 @@ export default function Dashboard({ session }: { session: any }) {
     useEffect(() => {
         getProfile()
         fetchCycles()
+        fetchSupportTasks()
     }, [session])
 
     // Prediction Logic
@@ -446,7 +476,7 @@ export default function Dashboard({ session }: { session: any }) {
 
             if (diffDays <= 5) setPhase('Menstrual')
             else if (diffDays <= 14) setPhase('Follicular')
-            else if (diffDays <= 21) setPhase('Ovulation')
+            else if (diffDays <= 21) setPhase('Ovulatory')
             else setPhase('Luteal')
         } else {
             setCycleDay(1)
@@ -462,8 +492,8 @@ export default function Dashboard({ session }: { session: any }) {
         // ONLY trigger notifications if we are looking at TODAY'S phase
         if (selectedDateStr === todayStr && phase && lastNotifiedPhase !== phase) {
             // User Notification
-            const phaseMsg = phase === 'Ovulation'
-                ? "You're in your Ovulation phase! Peak fertility and energy! 🌟"
+            const phaseMsg = phase === 'Ovulatory'
+                ? "You're in your Ovulatory phase! Peak fertility and energy! 🌟"
                 : `You've entered the ${phase} phase. Check your Roadmap for tips! ✨`
             addNotification(phaseMsg, "info")
 
@@ -481,13 +511,39 @@ export default function Dashboard({ session }: { session: any }) {
     }, [phase, profile?.partner_email, lastNotifiedPhase, date])
 
     const notifyPartnerOfPhaseChange = async (newPhase: string) => {
-        if (!profile?.partner_email || lastNotifiedPhase === newPhase) return
+        if (!profile?.partner_email) return
+
+        // Generate dynamic tip based on recent logs if available
+        let dynamicTips = PARTNER_TIPS[newPhase as keyof typeof PARTNER_TIPS]
+
+        // Enhance with recent log context if possible (Dynamic Messaging)
+        const todayStr = getLocalDateString(new Date())
+        const todayLog = dailyLogs[todayStr]
+        if (todayLog) {
+            if (todayLog.mood) {
+                dynamicTips += ` She's feeling a bit ${todayLog.mood.toLowerCase()} today.`
+            }
+            if (todayLog.symptoms && todayLog.symptoms.length > 0) {
+                dynamicTips += ` She mentions having ${todayLog.symptoms.join(', ').toLowerCase()} as well.`
+            }
+        }
+
         try {
-            // In a real app, this would be an API call to a backend/Edge Function
-            console.log(`[SIMULATED EMAIL] Sending phase update to ${profile.partner_email}: ${newPhase} phase started.`)
-            setLastNotifiedPhase(newPhase)
-            // Mocking the supabase function call as specified in the plan
-            /* await supabase.functions.invoke('phase-alert', { body: { ... } }) */
+            const response = await fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    partnerEmail: profile.partner_email,
+                    newPhase,
+                    nickname: userName || 'Partner',
+                    dynamicTips
+                })
+            })
+
+            const resData = await response.json()
+            if (!response.ok) throw new Error(resData.error || 'Failed to send notification')
+
+            console.log(`[REAL EMAIL] Sent phase update to ${profile.partner_email}: ${newPhase} phase.`)
         } catch (err) {
             console.error("Email notification failed:", err)
         }
@@ -829,6 +885,84 @@ export default function Dashboard({ session }: { session: any }) {
         doc.save(`period-tracker-report-${new Date().toISOString().split('T')[0]}.pdf`)
     }
 
+    const fetchSupportTasks = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('supplies')
+                .select('*')
+                .eq('user_id', session.user.id)
+                .order('created_at', { ascending: true })
+
+            if (error) throw error
+            setSupportTasks(data || [])
+
+            // If no tasks exist, suggest some for current phase
+            if ((!data || data.length === 0) && phase) {
+                suggestTasksForPhase(phase)
+            }
+        } catch (err) {
+            console.error("Error fetching support tasks:", err)
+        }
+    }
+
+    const suggestTasksForPhase = async (currentPhase: string) => {
+        const suggestions = PHASE_TASKS[currentPhase] || []
+        if (suggestions.length === 0) return
+
+        const newTasks = suggestions.map((item: string) => ({
+            user_id: session.user.id,
+            item,
+            is_checked: false
+        }))
+
+        try {
+            const { error } = await supabase.from('supplies').insert(newTasks)
+            if (error) throw error
+            fetchSupportTasks()
+        } catch (err) {
+            console.error("Error suggesting tasks:", err)
+        }
+    }
+
+    const toggleSupportTask = async (id: string, currentStatus: boolean) => {
+        try {
+            const { error } = await supabase
+                .from('supplies')
+                .update({ is_checked: !currentStatus })
+                .eq('id', id)
+            if (error) throw error
+            setSupportTasks(prev => prev.map(t => t.id === id ? { ...t, is_checked: !currentStatus } : t))
+        } catch (err) {
+            console.error("Error toggling task:", err)
+        }
+    }
+
+    const addSupportTask = async () => {
+        if (!supportTaskInput.trim()) return
+        try {
+            const { error } = await supabase.from('supplies').insert([{
+                user_id: session.user.id,
+                item: supportTaskInput.trim(),
+                is_checked: false
+            }])
+            if (error) throw error
+            setSupportTaskInput('')
+            fetchSupportTasks()
+        } catch (err) {
+            console.error("Error adding task:", err)
+        }
+    }
+
+    const deleteSupportTask = async (id: string) => {
+        try {
+            const { error } = await supabase.from('supplies').delete().eq('id', id)
+            if (error) throw error
+            setSupportTasks(prev => prev.filter(t => t.id !== id))
+        } catch (err) {
+            console.error("Error deleting task:", err)
+        }
+    }
+
     if (loading && !profile) return <div className={styles.loading}>Loading Dashboard...</div>
 
     const formattedName = (userName && userName.trim().length > 0)
@@ -992,15 +1126,15 @@ export default function Dashboard({ session }: { session: any }) {
 
             <div className={styles.grid} style={{
                 gridTemplateColumns: (activeTab === 'profile' || activeTab === 'knowledge') ? '1fr' :
-                    (activeTab === 'graph' && isDesktop) ? '0.8fr 1.5fr 1fr' :
+                    (activeTab === 'graph' && isDesktop) ? '1.2fr 1fr' : // Optimized for charts
                         (activeTab === 'home' && isDesktop) ? '1fr 1.5fr' : '1fr 1.5fr 1fr',
                 paddingBottom: '2rem',
                 width: (activeTab === 'knowledge' || activeTab === 'profile') ? '100%' : undefined,
                 maxWidth: (activeTab === 'knowledge' || activeTab === 'profile') ? '100%' : undefined,
                 margin: (activeTab === 'knowledge' || activeTab === 'profile') ? '0' : '0 auto'
             }}>
-                {/* LEFT COLUMN: Cycle Info */}
-                <div className="mobile-view-wrapper" style={{ display: (activeTab === 'home' || activeTab === 'graph') ? 'block' : 'none' }}>
+                {/* LEFT COLUMN: Cycle Info (Home Only) */}
+                <div className="mobile-view-wrapper" style={{ display: activeTab === 'home' ? 'block' : 'none' }}>
                     <div className={`${styles.card} ${styles.cycleCard}`} style={{
                         padding: activeTab === 'graph' && isDesktop ? '1rem' : '1.5rem'
                     }}>
@@ -1149,8 +1283,8 @@ export default function Dashboard({ session }: { session: any }) {
                 {/* CENTER COLUMN: Calendar & Graph */}
                 <div className="mobile-view-wrapper" style={{ display: (activeTab === 'home' || activeTab === 'graph' || (isDesktop && activeTab !== 'profile' && activeTab !== 'knowledge')) ? 'block' : 'none', width: '100%' }}>
 
-                    {/* Calendar View */}
-                    <div className={styles.card} style={{ minHeight: '400px', display: (activeTab === 'graph' && !isDesktop) ? 'none' : 'block' }}>
+                    {/* Calendar View (Home Only) */}
+                    <div className={styles.card} style={{ minHeight: '400px', display: activeTab === 'home' ? 'block' : 'none' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h3 style={{ margin: 0 }}>Calendar</h3>
                             <button
@@ -1197,43 +1331,23 @@ export default function Dashboard({ session }: { session: any }) {
                         </div>
                     </div>
 
-                    {/* Graph View (hidden on desktop graph tab, shown on mobile graph tab or other tabs) */}
+                    {/* Graph View (Cycle History) */}
                     <div className={styles.card} style={{
                         minHeight: '300px',
-                        display: activeTab === 'graph' && isDesktop ? 'none' : (activeTab === 'graph' ? 'block' : 'none'),
-                        marginTop: isDesktop ? '1rem' : '0'
+                        display: activeTab === 'graph' ? 'block' : 'none',
+                        marginTop: isDesktop && activeTab === 'graph' ? '0' : '1rem'
                     }}>
-                        <h3>{discreetMode ? 'Data History' : 'Cycle History'}</h3>
-                        <div style={{ width: '100%', height: 300, marginTop: '2rem' }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={graphData}>
-                                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                                    <YAxis hide />
-                                    <RechartsTooltip
-                                        cursor={{ fill: 'transparent' }}
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                    />
-                                    <Bar dataKey="length" fill="#ff9a9e" radius={[10, 10, 0, 0]} barSize={20} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                        <p style={{ textAlign: 'center', color: '#888', fontSize: '0.9rem', marginTop: '1rem' }}>
-                            {discreetMode ? 'Historical Lengths' : 'Last 6 Cycles Duration'}
-                        </p>
-                    </div>
-                </div>
-
-                {/* RIGHT COLUMN: Graph (shown on graph page as 3rd column) */}
-                <div className="mobile-view-wrapper" style={{ display: activeTab === 'graph' && isDesktop ? 'block' : 'none' }}>
-                    <div className={styles.card} style={{ minHeight: '400px' }}>
                         <h3>{discreetMode ? 'Data History' : 'Cycle History'}</h3>
                         <div style={{ width: '100%', height: 350, marginTop: '1.5rem' }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={graphData}>
                                     <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                                     <YAxis hide />
-                                    <RechartsTooltip />
-                                    <Bar dataKey="length" fill="#FF6B99" radius={[8, 8, 0, 0]} />
+                                    <RechartsTooltip
+                                        cursor={{ fill: 'transparent' }}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                    />
+                                    <Bar dataKey="length" fill="#FF6B99" radius={[8, 8, 0, 0]} barSize={20} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -1241,9 +1355,13 @@ export default function Dashboard({ session }: { session: any }) {
                             {discreetMode ? 'Historical Lengths' : 'Last 6 Cycles Duration'}
                         </p>
                     </div>
+                </div>
+
+                {/* RIGHT COLUMN: Graph (shown on graph page as 3rd column) */}
+                <div className="mobile-view-wrapper" style={{ display: activeTab === 'graph' && isDesktop ? 'block' : 'none' }}>
 
                     {/* BBT Trend Chart */}
-                    <div className={styles.card} style={{ height: '400px', display: 'flex', flexDirection: 'column', marginTop: '1rem' }}>
+                    <div className={styles.card} style={{ height: '400px', display: 'flex', flexDirection: 'column', marginTop: '0' }}>
                         <h3 style={{ marginBottom: '1.5rem' }}>{discreetMode ? 'Metric B Trend' : 'Basal Body Temperature Trend'}</h3>
                         <div style={{ flex: 1, minHeight: 0 }}>
                             {bbtData.length > 0 ? (
@@ -1264,6 +1382,19 @@ export default function Dashboard({ session }: { session: any }) {
                                         />
                                         <RechartsTooltip
                                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                            content={({ active, payload }) => {
+                                                if (active && payload && payload.length) {
+                                                    const data = payload[0].payload;
+                                                    return (
+                                                        <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', border: '1px solid #eee' }}>
+                                                            <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem' }}>{data.date}</p>
+                                                            <p style={{ margin: '0.25rem 0 0.5rem 0', color: '#FF6B99', fontSize: '1.1rem', fontWeight: 700 }}>{data.temp}°C</p>
+                                                            {data.mucus && <p style={{ margin: 0, fontSize: '0.75rem', color: '#666' }}>💧 Mucus: {data.mucus}</p>}
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
                                         />
                                         <Line
                                             type="monotone"
@@ -1279,6 +1410,45 @@ export default function Dashboard({ session }: { session: any }) {
                                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '0.9rem' }}>
                                     {discreetMode ? 'No Metric B data logged in the last 30 days.' : 'No BBT data logged in the last 30 days.'}
                                 </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Pattern Recognition Insight Card (Phase 1) */}
+                    <div className={styles.card} style={{ marginTop: '1rem', background: 'linear-gradient(135deg, #FFF5F7 0%, #FFFFFF 100%)', border: '1px solid #FFD1DC' }}>
+                        <h3 style={{ color: '#FF6B99', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            🧠 Health IQ Insights
+                        </h3>
+                        <div style={{ marginTop: '1.2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {bbtData.length >= 6 ? (
+                                <>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem', background: 'white', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                                        <span style={{ fontSize: '0.9rem', color: '#666' }}>Coverline (Est.)</span>
+                                        <span style={{ fontWeight: 600, color: '#333' }}>
+                                            {(bbtData.reduce((a, b) => a + b.temp, 0) / bbtData.length).toFixed(2)}°C
+                                        </span>
+                                    </div>
+                                    <div style={{ padding: '1rem', background: '#FFF0F3', borderRadius: '10px', borderLeft: '4px solid #FF6B99' }}>
+                                        <p style={{ margin: 0, fontSize: '0.9rem', color: '#444', lineHeight: '1.5' }}>
+                                            {(() => {
+                                                const temps = bbtData.map(d => d.temp);
+                                                let shiftFound = false;
+                                                for (let i = 6; i < temps.length - 2; i++) {
+                                                    const prev6Avg = temps.slice(i - 6, i).reduce((a, b) => a + b, 0) / 6;
+                                                    if (temps[i] > prev6Avg && temps[i + 1] > prev6Avg && temps[i + 2] > prev6Avg) {
+                                                        shiftFound = true;
+                                                        return `✨ Detected a sustained temperature shift on **${bbtData[i].date}**. This strongly suggests that ovulation has occurred and you are in the ${discreetMode ? 'next' : 'Luteal'} phase.`;
+                                                    }
+                                                }
+                                                return "We're monitoring your temperature daily. A sustained rise for 3 days will help us confirm ovulation!";
+                                            })()}
+                                        </p>
+                                    </div>
+                                </>
+                            ) : (
+                                <p style={{ fontSize: '0.9rem', color: '#888', fontStyle: 'italic' }}>
+                                    Keep logging your temperature for a few more days to unlock pattern recognition and ovulation insights.
+                                </p>
                             )}
                         </div>
                     </div>
@@ -1439,14 +1609,64 @@ export default function Dashboard({ session }: { session: any }) {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Partner Support Checklist */}
                                 {profile?.partner_email && (
-                                    <div style={{ marginTop: '1rem', padding: '1rem', background: '#F3E5F5', borderRadius: '6px', border: '1px solid #E1BEE7' }}>
-                                        <strong style={{ color: '#7B1FA2', display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
-                                            {discreetMode ? 'Support Tip' : `💡 How to support her in the ${phase} phase`}
-                                        </strong>
-                                        <p style={{ fontSize: '0.85rem', margin: 0, color: '#4A148C', lineHeight: '1.4' }}>
-                                            {phase ? maskSensitiveText(PARTNER_TIPS[phase as keyof typeof PARTNER_TIPS]) : '...'}
-                                        </p>
+                                    <div style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1.5rem', marginBottom: '1.5rem' }}>
+                                        <h4 style={{ fontSize: '0.95rem', color: '#444', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            🤝 Partner Support Checklist
+                                            <button
+                                                onClick={() => suggestTasksForPhase(phase || 'Follicular')}
+                                                style={{ background: 'none', border: 'none', color: '#FF6B99', fontSize: '0.75rem', cursor: 'pointer', padding: 0 }}
+                                            >
+                                                Refresh Suggestions
+                                            </button>
+                                        </h4>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', marginBottom: '1rem' }}>
+                                            {supportTasks.length > 0 ? supportTasks.map((task) => (
+                                                <div key={task.id} className={styles.supportTaskItem}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={task.is_checked}
+                                                        onChange={() => toggleSupportTask(task.id, task.is_checked)}
+                                                        className={styles.supportTaskCheckbox}
+                                                    />
+                                                    <span className={`${styles.supportTaskText} ${task.is_checked ? styles.supportTaskTextChecked : ''}`}>
+                                                        {task.item}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => deleteSupportTask(task.id)}
+                                                        className={styles.deleteBtn}
+                                                        title="Delete task"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            )) : (
+                                                <p style={{ fontSize: '0.85rem', color: '#888', fontStyle: 'italic', margin: '0.5rem 0' }}>
+                                                    No tasks yet. Click refresh to get suggestions!
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <input
+                                                type="text"
+                                                value={supportTaskInput}
+                                                onChange={(e) => setSupportTaskInput(e.target.value)}
+                                                placeholder="Add custom task..."
+                                                onKeyDown={(e) => e.key === 'Enter' && addSupportTask()}
+                                                style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ddd', outline: 'none' }}
+                                            />
+                                            <button
+                                                onClick={addSupportTask}
+                                                className="btn-primary"
+                                                style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}
+                                            >
+                                                Add
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
 
@@ -1688,15 +1908,18 @@ export default function Dashboard({ session }: { session: any }) {
                         </div>
 
                         {/* Medical Markers Section */}
-                        <div style={{ margin: '1.5rem 0' }}>
-                            <label style={{ display: 'block', marginBottom: '0.8rem', fontWeight: 500 }}>
-                                {discreetMode ? 'Biomarkers' : 'Biological Markers'}
+                        <div style={{ margin: '1.5rem 0', padding: '1.25rem', background: '#F8F9FA', borderRadius: '12px', border: '1px solid #EEF2F7' }}>
+                            <label style={{ display: 'block', marginBottom: '1.2rem', fontWeight: 600, color: '#333', fontSize: '1rem' }}>
+                                {discreetMode ? '📊 Biomarkers' : '🧬 Biological Markers'}
                             </label>
 
-                            <div style={{ marginBottom: '1.25rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#666' }}>
-                                    {discreetMode ? 'Metric A' : 'Basal Temperature (°C)'}
-                                </label>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                                    <label style={{ fontSize: '0.85rem', fontWeight: 500, color: '#555' }}>
+                                        {discreetMode ? 'Metric A' : 'Basal Temperature (°C)'}
+                                    </label>
+                                    <span style={{ fontSize: '0.75rem', color: '#999' }}>Measured at waking</span>
+                                </div>
                                 <input
                                     type="number"
                                     step="0.01"
@@ -1704,15 +1927,15 @@ export default function Dashboard({ session }: { session: any }) {
                                     onChange={(e) => setLogForm(prev => ({ ...prev, basalTemp: e.target.value }))}
                                     placeholder="e.g. 36.50"
                                     style={{
-                                        width: '100%', padding: '0.6rem 1rem', borderRadius: '6px',
-                                        border: '1px solid #eee', background: '#f9f9f9', outline: 'none',
-                                        fontSize: '0.9rem', color: '#333'
+                                        width: '100%', padding: '0.75rem 1rem', borderRadius: '8px',
+                                        border: '1px solid #E2E8F0', background: 'white', outline: 'none',
+                                        fontSize: '0.95rem', color: '#333', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
                                     }}
                                 />
                             </div>
 
-                            <div style={{ marginBottom: '1.25rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#666' }}>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.6rem', fontSize: '0.85rem', fontWeight: 500, color: '#555' }}>
                                     {discreetMode ? 'Texture' : 'Cervical Mucus'}
                                 </label>
                                 <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -1720,10 +1943,12 @@ export default function Dashboard({ session }: { session: any }) {
                                         <button key={type}
                                             onClick={() => setLogForm(prev => ({ ...prev, mucus: prev.mucus === type ? '' : type }))}
                                             style={{
-                                                padding: '0.5rem 1rem', borderRadius: '6px', border: 'none',
-                                                background: logForm.mucus === type ? '#9CCC65' : '#f0f0f0',
-                                                color: logForm.mucus === type ? 'white' : '#666',
-                                                cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500
+                                                padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid',
+                                                borderColor: logForm.mucus === type ? '#9CCC65' : '#E2E8F0',
+                                                background: logForm.mucus === type ? '#F1F8E9' : 'white',
+                                                color: logForm.mucus === type ? '#33691E' : '#666',
+                                                cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+                                                transition: 'all 0.2s'
                                             }}
                                         >
                                             {type === 'Eggwhite' ? (discreetMode ? 'Optimal' : 'Egg White') : type}
@@ -1733,7 +1958,7 @@ export default function Dashboard({ session }: { session: any }) {
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#666' }}>
+                                <label style={{ display: 'block', marginBottom: '0.6rem', fontSize: '0.85rem', fontWeight: 500, color: '#555' }}>
                                     {discreetMode ? 'Test Result' : 'LH Ovulation Test'}
                                 </label>
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1741,10 +1966,12 @@ export default function Dashboard({ session }: { session: any }) {
                                         <button key={res}
                                             onClick={() => setLogForm(prev => ({ ...prev, lhTest: prev.lhTest === res ? '' : res }))}
                                             style={{
-                                                flex: 1, padding: '0.5rem 1rem', borderRadius: '6px', border: 'none',
-                                                background: logForm.lhTest === res ? '#9CCC65' : '#f0f0f0',
-                                                color: logForm.lhTest === res ? 'white' : '#666',
-                                                cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500
+                                                flex: 1, padding: '0.6rem 0.5rem', borderRadius: '8px', border: '1px solid',
+                                                borderColor: logForm.lhTest === res ? '#9CCC65' : '#E2E8F0',
+                                                background: logForm.lhTest === res ? '#F1F8E9' : 'white',
+                                                color: logForm.lhTest === res ? '#33691E' : '#666',
+                                                cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+                                                transition: 'all 0.2s'
                                             }}
                                         >
                                             {res}

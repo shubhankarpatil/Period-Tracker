@@ -6,7 +6,49 @@ import styles from '../../components/Dashboard.module.css'
 export default function PartnerPortal({ params }: { params: Promise<{ token: string }> }) {
     const { token } = use(params)
     const [data, setData] = useState<any>(null)
+    const [supportTasks, setSupportTasks] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+
+    const fetchPartnerData = async () => {
+        try {
+            // Fetch profile first to get user_id
+            const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('id, name')
+                .eq('partner_token', token)
+                .single()
+
+            if (profileError) throw profileError
+
+            // Fetch most recent cycle logs for phase calculation
+            const { data: cycles, error: cycleError } = await supabase
+                .from('cycles')
+                .select('*')
+                .eq('user_id', profile.id)
+                .order('start_date', { ascending: false })
+
+            if (cycleError) throw cycleError
+
+            // Fetch dynamic support tasks
+            const { data: tasks, error: tasksError } = await supabase
+                .from('supplies')
+                .select('*')
+                .eq('user_id', profile.id)
+                .order('created_at', { ascending: true })
+
+            if (!tasksError) setSupportTasks(tasks || [])
+
+            setData({ profile, cycles })
+        } catch (err) {
+            console.error("Error fetching partner data:", err)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchPartnerData()
+    }, [token])
 
     const PARTNER_TIPS = {
         Menstrual: "Her energy may be low and she might have cramps. Hot water bottles, dark chocolate, and taking off some household load are great ways to support her today.",
@@ -15,36 +57,18 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
         Luteal: "She might be more inward-focused or sensitive (PMS). Be patient, offer comfort foods, and give her some extra space or quiet time if needed."
     } as any
 
-    useEffect(() => {
-        async function fetchPartnerData() {
-            try {
-                // Fetch profile first to get user_id
-                const { data: profile, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('id, name')
-                    .eq('partner_token', token)
-                    .single()
-
-                if (profileError) throw profileError
-
-                // Fetch most recent cycle logs for phase calculation
-                const { data: cycles, error: cycleError } = await supabase
-                    .from('cycles')
-                    .select('*')
-                    .eq('user_id', profile.id)
-                    .order('start_date', { ascending: false })
-
-                if (cycleError) throw cycleError
-
-                setData({ profile, cycles })
-            } catch (err) {
-                console.error("Error fetching partner data:", err)
-            } finally {
-                setLoading(false)
-            }
+    const toggleSupportTask = async (id: string, currentStatus: boolean) => {
+        try {
+            const { error } = await supabase
+                .from('supplies')
+                .update({ is_checked: !currentStatus })
+                .eq('id', id)
+            if (error) throw error
+            setSupportTasks(prev => prev.map(t => t.id === id ? { ...t, is_checked: !currentStatus } : t))
+        } catch (err) {
+            console.error("Error toggling task:", err)
         }
-        fetchPartnerData()
-    }, [token])
+    }
 
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading support portal...</div>
     if (!data) return <div style={{ padding: '2rem', textAlign: 'center' }}>This link is invalid or has expired.</div>
@@ -52,13 +76,19 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
     // Calculate phase (simplified version of Dashboard logic)
     const getPhase = () => {
         if (!data.cycles || data.cycles.length === 0) return 'Follicular'
-        const today = new Date().toISOString().split('T')[0]
-        const lastCycle = data.cycles[0]
-        const diff = (new Date(today).getTime() - new Date(lastCycle.start_date).getTime()) / (1000 * 60 * 60 * 24)
 
-        if (diff < 5) return 'Menstrual'
-        if (diff < 13) return 'Follicular'
-        if (diff < 16) return 'Ovulatory'
+        const today = new Date()
+        const lastCycle = data.cycles[0]
+
+        const [sYear, sMonth, sDay] = lastCycle.start_date.split('-').map(Number)
+        const start = new Date(sYear, sMonth - 1, sDay)
+
+        const diffTime = today.getTime() - start.getTime()
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1
+
+        if (diffDays <= 5) return 'Menstrual'
+        if (diffDays <= 14) return 'Follicular'
+        if (diffDays <= 21) return 'Ovulatory'
         return 'Luteal'
     }
 
@@ -83,62 +113,42 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
                     <h2 style={{ marginTop: '1.2rem', fontSize: '1.8rem' }}>How to support her today</h2>
                 </div>
 
-                <p style={{ fontSize: '1.1rem', lineHeight: '1.6', color: '#444' }}>
-                    {PARTNER_TIPS[phase]}
-                </p>
+                <div style={{
+                    marginTop: '1.5rem',
+                    padding: '1.5rem',
+                    background: '#F3E5F5',
+                    borderRadius: '12px',
+                    border: '1px solid #E1BEE7'
+                }}>
+                    <strong style={{ color: '#7B1FA2', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '1.1rem' }}>
+                        💡 How to support her in the {phase} phase
+                    </strong>
+                    <p style={{ fontSize: '1.05rem', margin: 0, color: '#4A148C', lineHeight: '1.6' }}>
+                        {PARTNER_TIPS[phase]}
+                    </p>
+                </div>
 
                 <div style={{ marginTop: '2.5rem', paddingTop: '2rem', borderTop: '1px solid #eee' }}>
-                    <h3 style={{ fontSize: '1rem', color: '#888', marginBottom: '1rem' }}>Support Tasks</h3>
-                    <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {phase === 'Menstrual' && [
-                            "Prepare a hot water bottle for her",
-                            "Stock up on iron-rich snacks (dark chocolate, nuts)",
-                            "Handle extra household chores tonight"
-                        ].map(task => (
-                            <li key={task} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.95rem' }}>
-                                <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid #FF6B99', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#FF6B99' }}></div>
-                                </div>
-                                {task}
-                            </li>
-                        ))}
-                        {phase === 'Follicular' && [
-                            "Plan a date night or social outing",
-                            "Suggest a new project or activity together",
-                            "Enjoy her rising energy levels!"
-                        ].map(task => (
-                            <li key={task} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.95rem' }}>
-                                <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid #4DB6AC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#4DB6AC' }}></div>
-                                </div>
-                                {task}
-                            </li>
-                        ))}
-                        {phase === 'Ovulatory' && [
-                            "Compliment her—her confidence is likely high!",
-                            "Go for a high-energy workout or long walk together",
-                            "Make the most of her peak social energy"
-                        ].map(task => (
-                            <li key={task} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.95rem' }}>
-                                <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid #FFD700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#FFD700' }}></div>
-                                </div>
-                                {task}
-                            </li>
-                        ))}
-                        {phase === 'Luteal' && [
-                            "Offer comfort foods (magnesium-rich is best)",
-                            "Provide extra patience if she's feeling sensitive",
-                            "Give her some space or a quiet night in"
-                        ].map(task => (
-                            <li key={task} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.95rem' }}>
-                                <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid #7B1FA2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#7B1FA2' }}></div>
-                                </div>
-                                {task}
-                            </li>
-                        ))}
-                    </ul>
+                    <h3 style={{ fontSize: '1rem', color: '#888', marginBottom: '1.5rem' }}>🤝 Active Support Checklist</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {supportTasks.length > 0 ? supportTasks.map(task => (
+                            <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={task.is_checked}
+                                    onChange={() => toggleSupportTask(task.id, task.is_checked)}
+                                    className={styles.supportTaskCheckbox}
+                                />
+                                <span className={`${styles.supportTaskText} ${task.is_checked ? styles.supportTaskTextChecked : ''}`}>
+                                    {task.item}
+                                </span>
+                            </div>
+                        )) : (
+                            <p style={{ fontSize: '0.9rem', color: '#888', fontStyle: 'italic' }}>
+                                No specific tasks requested yet. Just being there helps!
+                            </p>
+                        )}
+                    </div>
                 </div>
             </div>
 
