@@ -549,7 +549,6 @@ export default function Dashboard({ session }: { session: any }) {
         }
     }
 
-
     async function handleDayClick(value: Value, event: React.MouseEvent<HTMLButtonElement>) {
         if (!value) return
         const dateStr = getLocalDateString(value as Date)
@@ -729,7 +728,6 @@ export default function Dashboard({ session }: { session: any }) {
             fetchCycles()
         }
     }
-
 
     const downloadCSV = () => {
         // Collect all dates that have logs or periods
