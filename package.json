@@ -1,11 +1,12 @@
 {
-  "name": "void-tyson",
+  "name": "period-tracker",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "vitest"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.94.0",
@@ -24,6 +25,7 @@
     "@types/react": "^19",
     "@types/react-calendar": "^3.9.0",
     "@types/react-dom": "^19",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.0"
   }
 }

@@ -1,6 +1,7 @@
 'use client'
 import React, { useState, useEffect, use } from 'react'
 import { supabase } from '@/lib/supabase'
+import { calculatePhase } from '@/lib/cyclePhase'
 import styles from '../../components/Dashboard.module.css'
 
 export default function PartnerPortal({ params }: { params: Promise<{ token: string }> }) {
@@ -73,26 +74,7 @@ export default function PartnerPortal({ params }: { params: Promise<{ token: str
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading support portal...</div>
     if (!data) return <div style={{ padding: '2rem', textAlign: 'center' }}>This link is invalid or has expired.</div>
 
-    // Calculate phase (simplified version of Dashboard logic)
-    const getPhase = () => {
-        if (!data.cycles || data.cycles.length === 0) return 'Follicular'
-
-        const today = new Date()
-        const lastCycle = data.cycles[0]
-
-        const [sYear, sMonth, sDay] = lastCycle.start_date.split('-').map(Number)
-        const start = new Date(sYear, sMonth - 1, sDay)
-
-        const diffTime = today.getTime() - start.getTime()
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1
-
-        if (diffDays <= 5) return 'Menstrual'
-        if (diffDays <= 14) return 'Follicular'
-        if (diffDays <= 21) return 'Ovulatory'
-        return 'Luteal'
-    }
-
-    const phase = getPhase()
+    const phase = calculatePhase(data.cycles || [], new Date()).phase
 
     return (
         <div style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem' }}>

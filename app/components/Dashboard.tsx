@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import styles from './Dashboard.module.css'
 import Calendar from 'react-calendar'
@@ -9,6 +9,7 @@ import Modal from './Modal'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 import { jsPDF } from 'jspdf'
 import KnowledgeHub from './KnowledgeHub'
+import { calculatePhase } from '@/lib/cyclePhase'
 
 type ValuePiece = Date | null;
 type Value = ValuePiece | [ValuePiece, ValuePiece];
@@ -85,6 +86,7 @@ export default function Dashboard({ session }: { session: any }) {
     const [notifications, setNotifications] = useState<any[]>([])
     const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false)
     const [toasts, setToasts] = useState<any[]>([])
+    const notificationRef = useRef<HTMLDivElement>(null)
 
     const addNotification = (text: string, type: 'info' | 'remind' | 'support' = 'info') => {
         const newId = Date.now() + Math.random()
@@ -152,27 +154,27 @@ export default function Dashboard({ session }: { session: any }) {
     const PHASE_TASKS = {
         Menstrual: [
             "Bring her a hot water bottle for cramps",
-            "Restock her favorite dark chocolate/snacks",
-            "Take over the evening chores/cooking",
-            "Ensure she has plenty of water and iron-rich foods"
+            "Pick up her favorite comfort snacks",
+            "Take dinner duty tonight (cook or order in)",
+            "Restock the bathroom with her preferred period supplies"
         ],
         Follicular: [
-            "Plan an outdoor activity or date",
-            "Support her with any new projects or goals",
-            "Enjoy her rising energy together",
-            "Cook a light, fresh meal today"
+            "Plan an outdoor date or activity for the week",
+            "Ask what she's excited about and offer to help",
+            "Try a new restaurant or recipe together",
+            "Cook a light, fresh meal with seasonal produce"
         ],
         Ovulatory: [
-            "Give her extra compliments (confidence is high!)",
-            "Go for a high-energy workout together",
-            "Perfect time for a social outing with friends",
-            "Stay hydrated and active"
+            "Tell her one specific thing you love about her today",
+            "Schedule an active date — workout, hike, or dance class",
+            "Plan a night out with friends this week",
+            "Surprise her with a small thoughtful gesture"
         ],
         Luteal: [
-            "Be extra patient and active listener",
-            "Offer a gentle massage or relaxation time",
-            "Avoid planning high-stress social events",
-            "Buy magnesium-rich snacks (pumpkin seeds, chocolate)"
+            "Offer a back rub or gentle massage in the evening",
+            "Plan a quiet night in (no big social commitments)",
+            "Listen without interrupting at dinner tonight",
+            "Pick up magnesium-rich snacks (pumpkin seeds, dark chocolate, bananas)"
         ]
     } as any
 
@@ -223,9 +225,23 @@ export default function Dashboard({ session }: { session: any }) {
     }
 
     useEffect(() => {
+        if (!isNotificationPanelOpen) return
+        const handleClickOutside = (e: MouseEvent) => {
+            if (notificationRef.current && !notificationRef.current.contains(e.target as Node)) {
+                setIsNotificationPanelOpen(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [isNotificationPanelOpen])
+
+    useEffect(() => {
         const handleResize = () => setIsDesktop(window.innerWidth >= 900)
         const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setIsDayModalOpen(false)
+            if (e.key === 'Escape') {
+                setIsDayModalOpen(false)
+                setIsNotificationPanelOpen(false)
+            }
         }
         if (typeof window !== 'undefined') {
             handleResize()
@@ -445,43 +461,13 @@ export default function Dashboard({ session }: { session: any }) {
     }
 
     const updatePhaseInfo = (targetDate: Date, cycles: any[]) => {
-        // Use a specific cycles loading guard to prevent premature phase calculation
         if (isCyclesLoading && (!cycles || cycles.length === 0)) {
             return
         }
 
-        // If truly no cycles after loading, default to Follicular
-        if (!cycles || cycles.length === 0) {
-            setCycleDay(1)
-            setPhase('Follicular')
-            return
-        }
-
-        const targetStr = getLocalDateString(targetDate)
-        // Find most recent start <= target
-        const pastCycles = cycles.filter((c: any) => c.start_date <= targetStr)
-
-        if (pastCycles.length > 0) {
-            // We need to sort by start_date DESC to get the *nearest* past cycle
-            // The API returns ordered descending, but filter preserves order? Yes.
-            const currentCycle = pastCycles[0] // Assuming cycles is ordered DESC
-
-            const [sYear, sMonth, sDay] = currentCycle.start_date.split('-').map(Number)
-            const start = new Date(sYear, sMonth - 1, sDay)
-
-            const diffTime = targetDate.getTime() - start.getTime()
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1
-
-            setCycleDay(diffDays > 0 ? diffDays : 1)
-
-            if (diffDays <= 5) setPhase('Menstrual')
-            else if (diffDays <= 14) setPhase('Follicular')
-            else if (diffDays <= 21) setPhase('Ovulatory')
-            else setPhase('Luteal')
-        } else {
-            setCycleDay(1)
-            setPhase('Follicular')
-        }
+        const result = calculatePhase(cycles || [], targetDate)
+        setCycleDay(result.day)
+        setPhase(result.phase)
     }
 
     // Effect to trigger phase-change notifications
@@ -907,6 +893,8 @@ export default function Dashboard({ session }: { session: any }) {
         const suggestions = PHASE_TASKS[currentPhase] || []
         if (suggestions.length === 0) return
 
+        const allSuggestionStrings = Object.values(PHASE_TASKS).flat() as string[]
+
         const newTasks = suggestions.map((item: string) => ({
             user_id: session.user.id,
             item,
@@ -914,6 +902,12 @@ export default function Dashboard({ session }: { session: any }) {
         }))
 
         try {
+            await supabase
+                .from('supplies')
+                .delete()
+                .eq('user_id', session.user.id)
+                .in('item', allSuggestionStrings)
+
             const { error } = await supabase.from('supplies').insert(newTasks)
             if (error) throw error
             fetchSupportTasks()
@@ -999,8 +993,8 @@ export default function Dashboard({ session }: { session: any }) {
 
     return (
         <div className={styles.dashboard} style={{
-            paddingLeft: activeTab === 'knowledge' ? '80px' : undefined, // Maintain a small gap for sidebar but remove the rest
-            paddingRight: activeTab === 'knowledge' ? '0' : undefined,
+            paddingLeft: activeTab === 'knowledge' && isDesktop ? '104px' : undefined,
+            paddingRight: undefined,
             paddingTop: activeTab === 'knowledge' ? '1rem' : undefined
         }}>
             {/* Toast System */}
@@ -1026,25 +1020,27 @@ export default function Dashboard({ session }: { session: any }) {
                 <header className={styles.header} style={{
                     position: 'relative',
                     display: 'flex',
+                    flexDirection: isDesktop ? 'row' : 'column',
                     justifyContent: 'space-between',
                     alignItems: 'flex-start',
+                    gap: isDesktop ? 0 : '1rem',
                     paddingBottom: '2.5rem',
                     width: '100%'
                 }}>
-                    <div style={{ flex: 1, paddingRight: '140px' }}>
+                    <div style={{ flex: 1, paddingRight: isDesktop ? '140px' : '0' }}>
                         <h1 style={{ fontSize: isDesktop ? '3.2rem' : '2.2rem', marginBottom: '0.25rem', letterSpacing: '-0.04em', lineHeight: 1.1 }}>Hey, {formattedName}</h1>
                         <p style={{ fontSize: '1.1rem', color: '#666', fontWeight: 400 }}>Your health overview for today</p>
                     </div>
                     <div style={{
-                        position: 'absolute',
-                        top: '0.5rem',
-                        right: '0',
+                        position: isDesktop ? 'absolute' : 'static',
+                        top: isDesktop ? '0.5rem' : undefined,
+                        right: isDesktop ? '0' : undefined,
                         display: 'flex',
                         gap: '1rem',
                         alignItems: 'center'
                     }}>
                         {/* Notification Bell */}
-                        <div style={{ position: 'relative' }}>
+                        <div ref={notificationRef} style={{ position: 'relative' }}>
                             <div
                                 className={styles.notificationBell}
                                 onClick={() => setIsNotificationPanelOpen(!isNotificationPanelOpen)}
@@ -1356,7 +1352,7 @@ export default function Dashboard({ session }: { session: any }) {
                 </div>
 
                 {/* RIGHT COLUMN: Graph (shown on graph page as 3rd column) */}
-                <div className="mobile-view-wrapper" style={{ display: activeTab === 'graph' && isDesktop ? 'block' : 'none' }}>
+                <div className="mobile-view-wrapper" style={{ display: activeTab === 'graph' ? 'block' : 'none' }}>
 
                     {/* BBT Trend Chart */}
                     <div className={styles.card} style={{ height: '400px', display: 'flex', flexDirection: 'column', marginTop: '0' }}>
@@ -1459,7 +1455,7 @@ export default function Dashboard({ session }: { session: any }) {
                     margin: 0,
                     padding: 0
                 }}>
-                    <KnowledgeHub discreetMode={discreetMode} />
+                    <KnowledgeHub discreetMode={discreetMode} isDesktop={isDesktop} />
                 </div>
 
                 {/* PROFILE SECTION */}
@@ -1470,10 +1466,11 @@ export default function Dashboard({ session }: { session: any }) {
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: isDesktop ? 'repeat(2, 1fr)' : '1fr',
-                        gap: '1rem'
+                        gap: '1rem',
+                        alignItems: 'start'
                     }}>
                         {/* User Information */}
-                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column' }}>
                             <h3>User Information</h3>
                             <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', flex: 1 }}>
                                 <div>
@@ -1577,7 +1574,7 @@ export default function Dashboard({ session }: { session: any }) {
 
 
                         {/* Partner Connectivity */}
-                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column' }}>
                             <h3>Partner Connectivity</h3>
                             <p className={styles.infoText} style={{ marginBottom: '1.5rem' }}>We'll send them tips when it matters.</p>
                             <div style={{ flex: 1 }}>
@@ -1611,7 +1608,7 @@ export default function Dashboard({ session }: { session: any }) {
                                 {/* Partner Support Checklist */}
                                 {profile?.partner_email && (
                                     <div style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1.5rem', marginBottom: '1.5rem' }}>
-                                        <h4 style={{ fontSize: '0.95rem', color: '#444', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <h4 style={{ fontSize: '0.95rem', color: '#444', marginBottom: '1rem', display: 'flex', flexDirection: isDesktop ? 'row' : 'column', justifyContent: 'space-between', alignItems: isDesktop ? 'center' : 'flex-start', gap: '0.5rem' }}>
                                             🤝 Partner Support Checklist
                                             <button
                                                 onClick={() => suggestTasksForPhase(phase || 'Follicular')}
@@ -1724,7 +1721,7 @@ export default function Dashboard({ session }: { session: any }) {
                         </div>
 
                         {/* Management & Account */}
-                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column' }}>
                             <h3>Management & Account</h3>
                             <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', flex: 1 }}>
                                 <button
@@ -1805,12 +1802,41 @@ export default function Dashboard({ session }: { session: any }) {
                 <div className={styles.modalOverlay}
                     onClick={(e) => { if (e.target === e.currentTarget) setIsDayModalOpen(false) }}
                     style={{
-                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000
+                        position: 'fixed', inset: 0,
+                        background: 'rgba(0,0,0,0.5)', zIndex: 2000
                     }}
                 >
-                    <div style={{ background: 'white', padding: '2rem', borderRadius: '8px', width: '90%', maxWidth: '400px', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{
+                        position: 'fixed',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        background: 'white',
+                        padding: '0 2rem',
+                        borderRadius: '8px',
+                        width: 'calc(100% - 1rem)',
+                        maxWidth: '400px',
+                        maxHeight: isDesktop ? 'min(90vh, 600px)' : '70vh',
+                        overflowY: 'auto'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            position: 'sticky',
+                            top: 0,
+                            background: 'white',
+                            paddingTop: '1rem',
+                            paddingBottom: '1rem',
+                            marginLeft: '-2rem',
+                            marginRight: '-2rem',
+                            paddingLeft: '2rem',
+                            paddingRight: '2rem',
+                            borderBottom: '1px solid #eee',
+                            borderTopLeftRadius: '8px',
+                            borderTopRightRadius: '8px',
+                            zIndex: 1
+                        }}>
                             <h3 style={{ margin: 0 }}>{getLocalDateString(date as Date)}</h3>
                             <button onClick={() => setIsDayModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
                         </div>
@@ -1941,7 +1967,7 @@ export default function Dashboard({ session }: { session: any }) {
                                         <button key={type}
                                             onClick={() => setLogForm(prev => ({ ...prev, mucus: prev.mucus === type ? '' : type }))}
                                             style={{
-                                                padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid',
+                                                padding: '0.5rem 0.8rem', borderRadius: '6px', border: '1px solid',
                                                 borderColor: logForm.mucus === type ? '#9CCC65' : '#E2E8F0',
                                                 background: logForm.mucus === type ? '#F1F8E9' : 'white',
                                                 color: logForm.mucus === type ? '#33691E' : '#666',
@@ -1964,7 +1990,7 @@ export default function Dashboard({ session }: { session: any }) {
                                         <button key={res}
                                             onClick={() => setLogForm(prev => ({ ...prev, lhTest: prev.lhTest === res ? '' : res }))}
                                             style={{
-                                                flex: 1, padding: '0.6rem 0.5rem', borderRadius: '8px', border: '1px solid',
+                                                flex: 1, padding: '0.6rem 0.5rem', borderRadius: '6px', border: '1px solid',
                                                 borderColor: logForm.lhTest === res ? '#9CCC65' : '#E2E8F0',
                                                 background: logForm.lhTest === res ? '#F1F8E9' : 'white',
                                                 color: logForm.lhTest === res ? '#33691E' : '#666',
@@ -1979,7 +2005,23 @@ export default function Dashboard({ session }: { session: any }) {
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                        <div style={{
+                            display: 'flex',
+                            gap: '1rem',
+                            marginTop: '2rem',
+                            position: 'sticky',
+                            bottom: 0,
+                            background: 'white',
+                            paddingTop: '1rem',
+                            paddingBottom: '1rem',
+                            marginLeft: '-2rem',
+                            marginRight: '-2rem',
+                            paddingLeft: '2rem',
+                            paddingRight: '2rem',
+                            borderTop: '1px solid #eee',
+                            borderBottomLeftRadius: '8px',
+                            borderBottomRightRadius: '8px'
+                        }}>
                             <button onClick={handleSaveLog} style={{ flex: 1, padding: '1rem', background: '#FF6B99', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>Save Daily Log & Period</button>
                         </div>
                     </div>

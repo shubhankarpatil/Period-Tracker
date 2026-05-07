@@ -53,6 +53,14 @@
     animation: slideDown 0.3s ease-out;
 }
 
+@media (max-width: 899px) {
+    .notificationPanel {
+        right: auto;
+        left: 0;
+        width: calc(100vw - 2rem);
+    }
+}
+
 @keyframes slideDown {
     from {
         opacity: 0;
@@ -186,6 +194,10 @@
 
 .toast.remind {
     background: #FF6B99;
+}
+
+.dashboard {
+    padding: 1.5rem 1rem 90px;
 }
 
 @media (min-width: 900px) {
