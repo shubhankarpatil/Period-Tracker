@@ -9,6 +9,7 @@ import Modal from './Modal'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts'
 import { jsPDF } from 'jspdf'
 import KnowledgeHub from './KnowledgeHub'
+import FeedbackModal from './FeedbackModal'
 import { calculatePhase } from '@/lib/cyclePhase'
 
 type ValuePiece = Date | null;
@@ -63,6 +64,7 @@ export default function Dashboard({ session }: { session: any }) {
     const [discreetMode, setDiscreetMode] = useState(false)
     const [supportTasks, setSupportTasks] = useState<any[]>([])
     const [supportTaskInput, setSupportTaskInput] = useState('')
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false)
 
     const maskSensitiveText = (text: string) => {
         if (!discreetMode || !text) return text
@@ -123,58 +125,58 @@ export default function Dashboard({ session }: { session: any }) {
 
     const PHASE_TIPS = {
         Menstrual: {
-            nutrition: "Focus on iron-rich foods like spinach and lean meats. Warm teas can help with cramps.",
-            exercise: "Rest or gentle stretching. Listen to your body's need for recovery.",
-            insight: "Hormones (Estrogen and Progesterone) are at their lowest. Your body is focusing on shedding the uterine lining; prioritising rest and nourishment aids this process."
+            nutrition: "Iron-rich foods (lentils, spinach, red meat, tofu) help offset blood loss. Warmth and steady hydration tend to ease cramps.",
+            exercise: "Whatever feels right. Gentle movement often eases cramps, and harder training is fine if the energy's there.",
+            insight: "Estrogen and progesterone are both at their lowest. The uterine lining sheds, and energy often dips in the first few days."
         },
         Follicular: {
-            nutrition: "Eat fermented foods like yogurt. Complex carbs will provide stable energy.",
-            exercise: "Energy is rising! Great time for cardio or strength training.",
-            insight: "FSH (Follicle Stimulating Hormone) signals ovaries to prepare an egg. Rising Estrogen improves cognitive focus and social confidence."
+            nutrition: "Complex carbs and fermented foods support stable energy as estrogen climbs.",
+            exercise: "Energy and recovery are usually strong here. A good window for harder training or learning new skills.",
+            insight: "FSH recruits a follicle to mature. Rising estrogen tends to lift mood, focus, and verbal fluency."
         },
         Ovulatory: {
-            nutrition: "High-fibre veggies like broccoli. Stay hydrated to support cervical mucus.",
-            exercise: "Peak energy! High-intensity workouts (HIIT) or social classes.",
-            insight: "An LH (Luteinizing Hormone) surge triggers egg release. Testosterone peaks here, often increasing your strength and physical drive."
+            nutrition: "Hydration and fibre help here. Cruciferous vegetables support estrogen metabolism as it begins to drop.",
+            exercise: "Strength and high-intensity work often feel easiest now. Ligament laxity also peaks, so warm up properly.",
+            insight: "An LH surge triggers ovulation. Estrogen and testosterone both peak, which often sharpens verbal fluency, confidence, and drive."
         },
         Luteal: {
-            nutrition: "Magnesium-rich foods like dark chocolate and pumpkin seeds. Avoid excess salt.",
-            exercise: "Strength training is effective, but watch for lower endurance. Try yoga.",
-            insight: "Progesterone dominates to stabilize the uterine lining. The drop in hormones at the end of this phase can trigger irritability or bloating (PMS)."
+            nutrition: "Magnesium (dark chocolate, pumpkin seeds, leafy greens) and steady protein blunt the late-phase mood dip more reliably than caffeine or sugar.",
+            exercise: "Strength work still goes well. Endurance often dips in the final week — pull back if a session feels harder than usual.",
+            insight: "Progesterone rises to stabilise the lining, then drops sharply if there's no pregnancy. That drop is what triggers PMS symptoms in the final days."
         }
     } as any
 
     const PARTNER_TIPS = {
-        Menstrual: "Her energy may be low and she might have cramps. Hot water bottles, dark chocolate, and taking off some household load are great ways to support her today.",
-        Follicular: "She's likely feeling more energetic and social. Great time for a date night or tackling a new project together!",
-        Ovulatory: "Confidence and energy are at their peak. She's at her most fertile right now.",
-        Luteal: "She might be more inward-focused or sensitive (PMS). Be patient, offer comfort foods, and give her some extra space or quiet time if needed."
+        Menstrual: "Energy is usually lower in the first few days. Warmth, easy meals, and taking something off their plate go a long way.",
+        Follicular: "Estrogen is rising — energy, mood, and focus tend to climb with it. A good week for plans that take some momentum.",
+        Ovulatory: "Energy, mood, and verbal fluency are usually at their peak. Fertility is also highest here, if that's relevant for you both.",
+        Luteal: "Progesterone drops sharply in the final week, which can show up as low mood, irritability, or fatigue. Steady food, quieter plans, and not taking shifts personally help most."
     } as any
 
     const PHASE_TASKS = {
         Menstrual: [
-            "Bring her a hot water bottle for cramps",
-            "Pick up her favorite comfort snacks",
-            "Take dinner duty tonight (cook or order in)",
-            "Restock the bathroom with her preferred period supplies"
+            "Pick up a hot water bottle or heat pack",
+            "Take dinner duty tonight — cook or order in",
+            "Restock the bathroom with their preferred supplies",
+            "Pick up the comfort snacks they actually like"
         ],
         Follicular: [
-            "Plan an outdoor date or activity for the week",
-            "Ask what she's excited about and offer to help",
+            "Plan an outdoor activity for the week",
+            "Ask what they're working on and offer to help",
             "Try a new restaurant or recipe together",
-            "Cook a light, fresh meal with seasonal produce"
+            "Cook something light with seasonal produce"
         ],
         Ovulatory: [
-            "Tell her one specific thing you love about her today",
-            "Schedule an active date — workout, hike, or dance class",
-            "Plan a night out with friends this week",
-            "Surprise her with a small thoughtful gesture"
+            "Plan something active together — a hike, workout, or class",
+            "Schedule time with friends this week",
+            "Cook a protein-heavy meal together",
+            "Use the energy peak for a project you've both been putting off"
         ],
         Luteal: [
-            "Offer a back rub or gentle massage in the evening",
-            "Plan a quiet night in (no big social commitments)",
-            "Listen without interrupting at dinner tonight",
-            "Pick up magnesium-rich snacks (pumpkin seeds, dark chocolate, bananas)"
+            "Plan a quiet evening in, no big commitments",
+            "Pick up magnesium-rich snacks: dark chocolate, pumpkin seeds, bananas",
+            "Cover an errand or chore without being asked",
+            "Make space for low-stakes conversation without offering fixes"
         ]
     } as any
 
@@ -376,7 +378,7 @@ export default function Dashboard({ session }: { session: any }) {
                 if (!todayLog || !todayLog.mood) {
                     const lastRemind = localStorage.getItem('lastRemindedDate')
                     if (lastRemind !== todayStr) {
-                        addNotification("Don't forget to log your mood and symptoms for today! ✨", "remind")
+                        addNotification("You haven't logged today yet. A quick mood and symptom check helps keep the predictions accurate.", "remind")
                         localStorage.setItem('lastRemindedDate', todayStr)
                         setLastRemindedDate(todayStr)
                     }
@@ -479,8 +481,8 @@ export default function Dashboard({ session }: { session: any }) {
         if (selectedDateStr === todayStr && phase && lastNotifiedPhase !== phase) {
             // User Notification
             const phaseMsg = phase === 'Ovulatory'
-                ? "You're in your Ovulatory phase! Peak fertility and energy! 🌟"
-                : `You've entered the ${phase} phase. Check your Roadmap for tips! ✨`
+                ? "You're in your Ovulatory phase. Energy and confidence often peak here."
+                : `You've entered the ${phase} phase. Open Roadmap for what to expect.`
             addNotification(phaseMsg, "info")
 
             // Partner Notification
@@ -506,11 +508,13 @@ export default function Dashboard({ session }: { session: any }) {
         const todayStr = getLocalDateString(new Date())
         const todayLog = dailyLogs[todayStr]
         if (todayLog) {
+            const subject = userName ? `${userName} is` : "They're"
+            const subjectVerb = userName ? `${userName} mentions` : "They also mention"
             if (todayLog.mood) {
-                dynamicTips += ` She's feeling a bit ${todayLog.mood.toLowerCase()} today.`
+                dynamicTips += ` ${subject} feeling a bit ${todayLog.mood.toLowerCase()} today.`
             }
             if (todayLog.symptoms && todayLog.symptoms.length > 0) {
-                dynamicTips += ` She mentions having ${todayLog.symptoms.join(', ').toLowerCase()} as well.`
+                dynamicTips += ` ${subjectVerb} ${todayLog.symptoms.join(', ').toLowerCase()}.`
             }
         }
 
@@ -703,7 +707,7 @@ export default function Dashboard({ session }: { session: any }) {
                 lh_test: logForm.lhTest
             }, { onConflict: 'user_id, date' })
 
-        if (error) showAlert("Error", error.message)
+        if (error) showAlert("Couldn't save", "We couldn't save this log. Try again in a moment.")
         else {
             const dateStr = getLocalDateString(date as Date)
             const wasPeriod = periodDates.includes(dateStr)
@@ -758,9 +762,9 @@ export default function Dashboard({ session }: { session: any }) {
             }).eq('id', user.id)
             if (error) throw error
             setProfile({ ...profile, partner_email: partnerEmail })
-            showAlert('Success', 'Partner email updated!')
+            showAlert('Saved', 'Partner email updated.')
         } catch (error) {
-            showAlert('Error', 'Error updating profile!')
+            showAlert('Couldn\'t save', 'We couldn\'t update your partner email. Try again in a moment.')
         } finally {
             setLoading(false)
         }
@@ -777,10 +781,10 @@ export default function Dashboard({ session }: { session: any }) {
             if (error) throw error
             // Update local profile state if possible, or just wait for next fetch
             setProfile((prev: any) => ({ ...prev, partner_token: token }))
-            showAlert("Success", "Partner share link generated!")
+            showAlert("Link ready", "Your partner share link is generated. Copy it from the box below.")
         } catch (err) {
             console.error(err)
-            showAlert("Error", "Failed to generate token. Please ensure your database is updated.")
+            showAlert("Couldn't generate link", "Something went wrong on our side. Try again in a moment.")
         }
     }
 
@@ -793,10 +797,10 @@ export default function Dashboard({ session }: { session: any }) {
             }).eq('id', user.id)
             if (error) throw error
             setProfile({ ...profile, name: userName })
-            showAlert('Success', 'Name updated!')
+            showAlert('Saved', 'Name updated.')
         } catch (error: any) {
             console.error(error)
-            showAlert('Error', `Error updating name! ${error.message || ''}. Please ensure the 'name' column exists in your 'profiles' table.`)
+            showAlert('Couldn\'t save', 'We couldn\'t update your name. Try again in a moment.')
         } finally {
             setLoading(false)
         }
@@ -806,7 +810,7 @@ export default function Dashboard({ session }: { session: any }) {
 
     const handleResetMonth = () => {
         const monthName = activeStartDate.toLocaleString('default', { month: 'long', year: 'numeric' })
-        showConfirm(`Reset ${monthName}?`, `This will delete current month's known cycles.`, async () => {
+        showConfirm(`Reset ${monthName}?`, `This will delete every cycle logged in ${monthName}. This can't be undone.`, async () => {
             const startOfMonth = new Date(activeStartDate.getFullYear(), activeStartDate.getMonth(), 1)
             const endOfMonth = new Date(activeStartDate.getFullYear(), activeStartDate.getMonth() + 1, 0)
             const startStr = getLocalDateString(startOfMonth)
@@ -819,9 +823,9 @@ export default function Dashboard({ session }: { session: any }) {
                 .gte('start_date', startStr)
                 .lte('start_date', endStr)
 
-            if (error) showAlert("Error", error.message)
+            if (error) showAlert("Couldn't reset", "We couldn't reset this month. Try again in a moment.")
             else {
-                showAlert("Success", `Data for ${monthName} reset.`)
+                showAlert("Reset complete", `${monthName} has been cleared.`)
                 fetchCycles()
             }
         }, "Reset Month")
@@ -1431,17 +1435,17 @@ export default function Dashboard({ session }: { session: any }) {
                                                     const prev6Avg = temps.slice(i - 6, i).reduce((a, b) => a + b, 0) / 6;
                                                     if (temps[i] > prev6Avg && temps[i + 1] > prev6Avg && temps[i + 2] > prev6Avg) {
                                                         shiftFound = true;
-                                                        return `✨ Detected a sustained temperature shift on **${bbtData[i].date}**. This strongly suggests that ovulation has occurred and you are in the ${discreetMode ? 'next' : 'Luteal'} phase.`;
+                                                        return `Detected a sustained temperature shift on **${bbtData[i].date}**. This indicates ovulation has likely occurred and you are now in the ${discreetMode ? 'next' : 'Luteal'} phase.`;
                                                     }
                                                 }
-                                                return "We're monitoring your temperature daily. A sustained rise for 3 days will help us confirm ovulation!";
+                                                return "Tracking your temperature daily. A sustained rise across three consecutive days confirms ovulation.";
                                             })()}
                                         </p>
                                     </div>
                                 </>
                             ) : (
                                 <p style={{ fontSize: '0.9rem', color: '#888', fontStyle: 'italic' }}>
-                                    Keep logging your temperature for a few more days to unlock pattern recognition and ovulation insights.
+                                    Log your temperature daily for a few more cycles to enable pattern detection and ovulation confirmation.
                                 </p>
                             )}
                         </div>
@@ -1464,13 +1468,20 @@ export default function Dashboard({ session }: { session: any }) {
                     gridColumn: activeTab === 'profile' ? '1 / -1' : 'auto'
                 }}>
                     <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: isDesktop ? 'repeat(2, 1fr)' : '1fr',
+                        display: isDesktop ? 'grid' : 'flex',
+                        gridTemplateColumns: isDesktop ? 'repeat(2, 1fr)' : undefined,
+                        flexDirection: isDesktop ? undefined : 'column',
                         gap: '1rem',
-                        alignItems: 'start'
+                        alignItems: isDesktop ? 'start' : undefined
                     }}>
+                        {/* Column 1 wrapper (desktop): User + Partner. Collapses on mobile. */}
+                        <div style={{
+                            display: isDesktop ? 'flex' : 'contents',
+                            flexDirection: 'column',
+                            gap: '1rem'
+                        }}>
                         {/* User Information */}
-                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', order: isDesktop ? undefined : 1 }}>
                             <h3>User Information</h3>
                             <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', flex: 1 }}>
                                 <div>
@@ -1510,71 +1521,8 @@ export default function Dashboard({ session }: { session: any }) {
                             </div>
                         </div>
 
-                        {/* Cycle Statistics */}
-                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                            <h3>{discreetMode ? 'Summary Metrics' : 'Cycle Statistics'}</h3>
-                            <div style={{ marginTop: '1.2rem', display: 'grid', gridTemplateColumns: isDesktop ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: '0.75rem', flex: 1 }}>
-                                <div>
-                                    <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>{discreetMode ? 'Metric A Length' : 'Avg Cycle Length'}</label>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#FF6B99' }}>
-                                        {cycles.length > 1 ? (() => {
-                                            const sorted = [...cycles].sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
-                                            let totalDays = 0, gaps = 0
-                                            for (let i = 1; i < sorted.length; i++) {
-                                                const diff = (new Date(sorted[i].start_date).getTime() - new Date(sorted[i - 1].start_date).getTime()) / (1000 * 60 * 60 * 24)
-                                                if (diff > 20 && diff < 40) { totalDays += diff; gaps++ }
-                                            }
-                                            return gaps > 0 ? Math.round(totalDays / gaps) : 28
-                                        })() : 28} days
-                                    </div>
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>{discreetMode ? 'Metric B Duration' : 'Avg Period'}</label>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#FF6B99' }}>
-                                        {cycles.length > 0 ? Math.round(cycles.reduce((sum, c) => sum + (c.duration || 0), 0) / cycles.length) || 4 : 4} days
-                                    </div>
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>{discreetMode ? 'Next Target' : 'Next Period'}</label>
-                                    <div style={{ fontSize: '1.2rem', fontWeight: 600, color: '#FF6B99' }}>
-                                        {predictedPeriodDates.length > 0 ? new Date(predictedPeriodDates[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>Regularity</label>
-                                    <div style={{ fontSize: '1.2rem', fontWeight: 600, color: '#FF6B99' }}>
-                                        {(() => {
-                                            if (cycles.length < 3) return 'Need data';
-                                            const lengths = [];
-                                            const sorted = [...cycles].sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
-                                            for (let i = 1; i < sorted.length; i++) {
-                                                lengths.push((new Date(sorted[i].start_date).getTime() - new Date(sorted[i - 1].start_date).getTime()) / (1000 * 60 * 60 * 24));
-                                            }
-                                            const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
-                                            const variance = lengths.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / lengths.length;
-                                            const stdDev = Math.sqrt(variance);
-                                            if (stdDev < 2) return 'Stable';
-                                            if (stdDev < 4) return 'Moderate';
-                                            return 'Variable';
-                                        })()}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>Total Cycles</label>
-                                    <div style={{ fontSize: '1.2rem', fontWeight: 600, color: '#FF6B99' }}>{cycles.length}</div>
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>Total Logs</label>
-                                    <div style={{ fontSize: '1.2rem', fontWeight: 600, color: '#FF6B99' }}>{Object.keys(dailyLogs).length}</div>
-                                </div>
-                            </div>
-                        </div>
-
-
-
-
                         {/* Partner Connectivity */}
-                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', order: isDesktop ? undefined : 3 }}>
                             <h3>Partner Connectivity</h3>
                             <p className={styles.infoText} style={{ marginBottom: '1.5rem' }}>We'll send them tips when it matters.</p>
                             <div style={{ flex: 1 }}>
@@ -1686,7 +1634,7 @@ export default function Dashboard({ session }: { session: any }) {
                                                 onClick={() => {
                                                     const url = `${window.location.origin}/partner/${profile.partner_token}`
                                                     navigator.clipboard.writeText(url)
-                                                    showAlert("Copied!", "Link copied to clipboard.")
+                                                    showAlert("Copied", "Link copied to clipboard.")
                                                 }}
                                                 className="btn-primary"
                                                 style={{ fontSize: '0.8rem', padding: '0.4rem' }}
@@ -1720,8 +1668,77 @@ export default function Dashboard({ session }: { session: any }) {
                             </div>
                         </div>
 
+                        </div>{/* close column 1 wrapper */}
+
+                        {/* Column 2 wrapper (desktop): Cycle + Mgmt + Drop a Note. Collapses on mobile. */}
+                        <div style={{
+                            display: isDesktop ? 'flex' : 'contents',
+                            flexDirection: 'column',
+                            gap: '1rem'
+                        }}>
+
+                        {/* Cycle Statistics */}
+                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', height: '100%', order: isDesktop ? undefined : 2 }}>
+                            <h3>{discreetMode ? 'Summary Metrics' : 'Cycle Statistics'}</h3>
+                            <div style={{ marginTop: '1.2rem', display: 'grid', gridTemplateColumns: isDesktop ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: '0.75rem', flex: 1 }}>
+                                <div>
+                                    <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>{discreetMode ? 'Metric A Length' : 'Avg Cycle Length'}</label>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#FF6B99' }}>
+                                        {cycles.length > 1 ? (() => {
+                                            const sorted = [...cycles].sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
+                                            let totalDays = 0, gaps = 0
+                                            for (let i = 1; i < sorted.length; i++) {
+                                                const diff = (new Date(sorted[i].start_date).getTime() - new Date(sorted[i - 1].start_date).getTime()) / (1000 * 60 * 60 * 24)
+                                                if (diff > 20 && diff < 40) { totalDays += diff; gaps++ }
+                                            }
+                                            return gaps > 0 ? Math.round(totalDays / gaps) : 28
+                                        })() : 28} days
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>{discreetMode ? 'Metric B Duration' : 'Avg Period'}</label>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#FF6B99' }}>
+                                        {cycles.length > 0 ? Math.round(cycles.reduce((sum, c) => sum + (c.duration || 0), 0) / cycles.length) || 4 : 4} days
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>{discreetMode ? 'Next Target' : 'Next Period'}</label>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 600, color: '#FF6B99' }}>
+                                        {predictedPeriodDates.length > 0 ? new Date(predictedPeriodDates[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>Regularity</label>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 600, color: '#FF6B99' }}>
+                                        {(() => {
+                                            if (cycles.length < 3) return 'Need data';
+                                            const lengths = [];
+                                            const sorted = [...cycles].sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+                                            for (let i = 1; i < sorted.length; i++) {
+                                                lengths.push((new Date(sorted[i].start_date).getTime() - new Date(sorted[i - 1].start_date).getTime()) / (1000 * 60 * 60 * 24));
+                                            }
+                                            const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
+                                            const variance = lengths.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / lengths.length;
+                                            const stdDev = Math.sqrt(variance);
+                                            if (stdDev < 2) return 'Stable';
+                                            if (stdDev < 4) return 'Moderate';
+                                            return 'Variable';
+                                        })()}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>Total Cycles</label>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 600, color: '#FF6B99' }}>{cycles.length}</div>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '0.25rem' }}>Total Logs</label>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 600, color: '#FF6B99' }}>{Object.keys(dailyLogs).length}</div>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Management & Account */}
-                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', order: isDesktop ? undefined : 4 }}>
                             <h3>Management & Account</h3>
                             <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', flex: 1 }}>
                                 <button
@@ -1793,9 +1810,32 @@ export default function Dashboard({ session }: { session: any }) {
                                 </button>
                             </div>
                         </div>
+
+                        {/* Drop a Note */}
+                        <div className={styles.card} style={{ display: 'flex', flexDirection: 'column', order: isDesktop ? undefined : 5 }}>
+                            <h3>✉️ Drop a Note</h3>
+                            <p className={styles.infoText} style={{ marginBottom: '1.5rem' }}>
+                                Bug? Idea? Wishlist item? We read every note.
+                            </p>
+                            <button
+                                onClick={() => setIsFeedbackModalOpen(true)}
+                                className="btn-primary"
+                                style={{ width: '100%' }}
+                            >
+                                Share Feedback
+                            </button>
+                        </div>
+                        </div>{/* close column 2 wrapper */}
                     </div>
                 </div>
             </div>
+
+            <FeedbackModal
+                isOpen={isFeedbackModalOpen}
+                onClose={() => setIsFeedbackModalOpen(false)}
+                session={session}
+                isDesktop={isDesktop}
+            />
 
             {/* Day Detail Modal (Unified) */}
             {isDayModalOpen && (

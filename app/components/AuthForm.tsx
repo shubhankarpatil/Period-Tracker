@@ -33,7 +33,7 @@ export default function AuthForm() {
                 password,
             })
             if (error) setMessage(error.message)
-            else setMessage('Check your email for the confirmation link!')
+            else setMessage('Check your email for the confirmation link.')
         } else {
             const { error } = await supabase.auth.signInWithPassword({
                 email,
@@ -55,7 +55,7 @@ export default function AuthForm() {
             redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
         })
         if (error) setMessage(error.message)
-        else setMessage('Password reset link sent to your email!')
+        else setMessage('Password reset link sent. Check your email.')
         setLoading(false)
     }
 
@@ -77,7 +77,7 @@ export default function AuthForm() {
         if (error) {
             setMessage(error.message)
         } else {
-            setMessage('Password updated successfully! You can now sign in.')
+            setMessage('Password updated successfully. You can now sign in.')
             setNewPassword('')
             // Optionally redirect to sign-in or dashboard
             router.push('/auth')
