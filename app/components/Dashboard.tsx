@@ -1068,7 +1068,7 @@ export default function Dashboard({ session }: { session: any }) {
                                                 setNotifications(prev => prev.map(n => ({ ...n, unread: false })))
                                             }}
                                         >
-                                            Mark all as read
+                                            Mark All as Read
                                         </button>
                                     </div>
                                     <div className={styles.notificationList}>
@@ -1144,10 +1144,10 @@ export default function Dashboard({ session }: { session: any }) {
                                     {discreetMode
                                         ? 'Confidential cycle status'
                                         : (() => {
-                                            if (phase === 'Menstrual') return "The shedding of the uterine lining (your period).";
-                                            if (phase === 'Follicular') return "Estrogen rises as follicles mature for ovulation.";
-                                            if (phase === 'Ovulation') return "The release of an egg; your most fertile window.";
-                                            if (phase === 'Luteal') return "Post-ovulation; uterine lining thickens for potential pregnancy.";
+                                            if (phase === 'Menstrual') return "Your body is shedding and resetting. Feeling tired or low-energy right now is completely normal.";
+                                            if (phase === 'Follicular') return "Energy tends to pick up this week. You might feel more motivated and clear-headed than usual.";
+                                            if (phase === 'Ovulation') return "You're likely at your most energetic and social right now. Confidence often peaks around this time.";
+                                            if (phase === 'Luteal') return "Things may feel heavier or slower as hormones wind down. Rest more if you need to — your body is telling you something.";
                                             return `You are currently in the ${phase} phase.`;
                                         })()
                                     }

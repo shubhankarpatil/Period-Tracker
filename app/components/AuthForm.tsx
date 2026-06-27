@@ -123,7 +123,7 @@ export default function AuthForm() {
                                         className={styles.forgotBtn}
                                         disabled={loading}
                                     >
-                                        Forgot password?
+                                        Forgot Password?
                                     </button>
                                 </div>
                             )}
